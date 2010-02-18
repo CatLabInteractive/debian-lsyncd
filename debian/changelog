@@ -1,0 +1,5 @@
+lsyncd (1.26-1) UNRELEASED; urgency=low
+
+  * Initial release. (Closes: #570296)
+
+ -- Jan Dittberner <jandd@debian.org>  Thu, 18 Feb 2010 14:24:32 +0100

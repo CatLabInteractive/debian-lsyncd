@@ -1,0 +1,3 @@
+version=3
+http://code.google.com/p/lsyncd/downloads/list \
+ http://lsyncd.googlecode.com/files/lsyncd-(\d\.\d+)\.tar\.gz
