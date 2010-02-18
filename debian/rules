@@ -1,4 +1,7 @@
 #!/usr/bin/make -f
 
+override_dh_auto_test:
+# there is no real test suite only a test target in upstream's Makefile
+
 %:
 	dh $@
