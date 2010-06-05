@@ -1,4 +1,4 @@
-lsyncd (1.33-1) UNRELEASED; urgency=low
+lsyncd (1.33-1) unstable; urgency=low
 
   * New upstream version.
   * updated debian/watch to use googlecode redirector
@@ -6,7 +6,7 @@ lsyncd (1.33-1) UNRELEASED; urgency=low
     manpage.patch
   * run autoreconf in debian/rules
 
- -- Jan Dittberner <jandd@debian.org>  Sat, 05 Jun 2010 10:46:04 +0200
+ -- Jan Dittberner <jandd@debian.org>  Sat, 05 Jun 2010 10:59:19 +0200
 
 lsyncd (1.26-1) unstable; urgency=low
 
