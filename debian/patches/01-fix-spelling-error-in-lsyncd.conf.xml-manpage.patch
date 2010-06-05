@@ -2,18 +2,18 @@ Author: Jan Dittberner <jandd@debian.org>
 Subject: fix spelling error (paramater instead of parameter) in lsyncd.conf.xml manpage
 --- a/doc/lsyncd.conf.xml.5
 +++ b/doc/lsyncd.conf.xml.5
-@@ -175,7 +175,7 @@
+@@ -185,7 +185,7 @@
  .PP
  The mandatory
  \fB<source>\fR
--node specifies with the paramater "path" the directory to watch and sync\&. (once in a while something is mandatory\&. Also at least one
-+node specifies with the parameter "path" the directory to watch and sync\&. (once in a while something is mandatory\&. Also at least one
+-node specifies with the paramater "path" the directory to watch and sync. (once in a while something is mandatory. Also at least one
++node specifies with the parameter "path" the directory to watch and sync. (once in a while something is mandatory. Also at least one
  \fB<target;>\fR
- node has to specified where to sync to\&. This has to be a format accepted by rsync\&.
+ node has to specified where to sync to. This has to be a format accepted by rsync.
  .sp
 --- a/doc/manpage.lsyncd.conf.xml
 +++ b/doc/manpage.lsyncd.conf.xml
-@@ -127,7 +127,7 @@
+@@ -130,7 +130,7 @@
      <refsect2 id="directory">
      <title>DIRECTORIES</title>
       <para>With <option>&lt;directory&gt;</option> nodes arbitrarily many sources to be watched can be specified. Within a &lt;directory&gt; entry you can again specify a <option>&lt;binary&gt;</option>, <option>&lt;exclude-from&gt;</option> or a <option>&lt;callopt&gt;</option> node which will override global settings just for this source. See SETTINGS for details on this options.</para>
