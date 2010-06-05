@@ -4,6 +4,7 @@ lsyncd (1.33-1) UNRELEASED; urgency=low
   * updated debian/watch to use googlecode redirector
   * refresh debian/patches/01-fix-spelling-error-in-lsyncd.conf.xml-
     manpage.patch
+  * run autoreconf in debian/rules
 
  -- Jan Dittberner <jandd@debian.org>  Sat, 05 Jun 2010 10:46:04 +0200
 
