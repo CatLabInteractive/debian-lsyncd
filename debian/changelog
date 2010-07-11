@@ -5,6 +5,8 @@ lsyncd (1.34-1) UNRELEASED; urgency=low
     debian/patches/01-fix-spelling-error-in-lsyncd.conf.xml-manpage.patch,
     debian/patches/02-fix-lsyncd.conf.xml-manpage-location.patch and
     debian/patches/series all patches have been applied upstream
+  * debian/control: Bump Standards-Version to 3.9.0 (no changes
+    necessary)
 
  -- Jan Dittberner <jandd@debian.org>  Sun, 11 Jul 2010 23:07:48 +0200
 
