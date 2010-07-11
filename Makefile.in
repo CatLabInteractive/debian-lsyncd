@@ -135,7 +135,8 @@ EXTRA_DIST = config.h.in inotify-nosys.h lsyncd.conf.xml \
 	doc/lsyncd.1 doc/lsyncd.conf.xml.5
 
 
-nodist_man1_MANS = doc/lsyncd.1 doc/lsyncd.conf.xml.5
+nodist_man1_MANS = doc/lsyncd.1
+nodist_man5_MANS = doc/lsyncd.conf.xml.5
 
 DB2MAN = /usr/share/sgml/docbook/stylesheet/xsl/nwalsh/manpages/docbook.xsl
 XP = xsltproc -''-nonet \
@@ -171,7 +172,7 @@ LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DIST_SOURCES = $(lsyncd_SOURCES)
 
 NROFF = nroff
-MANS = $(nodist_man1_MANS)
+MANS = $(nodist_man1_MANS) $(nodist_man5_MANS)
 DIST_COMMON = README $(srcdir)/Makefile.in $(srcdir)/configure AUTHORS \
 	COPYING ChangeLog INSTALL Makefile.am NEWS TODO aclocal.m4 \
 	config.guess config.h.in config.sub configure configure.in \
@@ -320,6 +321,53 @@ uninstall-man1:
 	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
 	  echo " rm -f $(DESTDIR)$(man1dir)/$$inst"; \
 	  rm -f $(DESTDIR)$(man1dir)/$$inst; \
+	done
+
+man5dir = $(mandir)/man5
+install-man5: $(man5_MANS) $(man_MANS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(man5dir)
+	@list='$(man5_MANS) $(dist_man5_MANS) $(nodist_man5_MANS)'; \
+	l2='$(man_MANS) $(dist_man_MANS) $(nodist_man_MANS)'; \
+	for i in $$l2; do \
+	  case "$$i" in \
+	    *.5*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  case "$$ext" in \
+	    5*) ;; \
+	    *) ext='5' ;; \
+	  esac; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man5dir)/$$inst"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(man5dir)/$$inst; \
+	done
+uninstall-man5:
+	@$(NORMAL_UNINSTALL)
+	@list='$(man5_MANS) $(dist_man5_MANS) $(nodist_man5_MANS)'; \
+	l2='$(man_MANS) $(dist_man_MANS) $(nodist_man_MANS)'; \
+	for i in $$l2; do \
+	  case "$$i" in \
+	    *.5*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  case "$$ext" in \
+	    5*) ;; \
+	    *) ext='5' ;; \
+	  esac; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f $(DESTDIR)$(man5dir)/$$inst"; \
+	  rm -f $(DESTDIR)$(man5dir)/$$inst; \
 	done
 
 ETAGS = etags
@@ -567,7 +615,7 @@ check: check-am
 all-am: Makefile $(PROGRAMS) $(MANS) config.h
 
 installdirs:
-	$(mkinstalldirs) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
+	$(mkinstalldirs) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(man5dir)
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -617,7 +665,7 @@ install-exec-am: install-binPROGRAMS
 
 install-info: install-info-am
 
-install-man: install-man1
+install-man: install-man1 install-man5
 
 installcheck-am:
 
@@ -642,7 +690,7 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-info-am uninstall-man
 
-uninstall-man: uninstall-man1
+uninstall-man: uninstall-man1 uninstall-man5
 
 .PHONY: CTAGS GTAGS all all-am check check-TESTS check-am clean \
 	clean-binPROGRAMS clean-generic ctags dist dist-all dist-gzip \
@@ -651,11 +699,12 @@ uninstall-man: uninstall-man1
 	distuninstallcheck dvi dvi-am info info-am install install-am \
 	install-binPROGRAMS install-data install-data-am install-exec \
 	install-exec-am install-info install-info-am install-man \
-	install-man1 install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
-	ps ps-am tags uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-info-am uninstall-man uninstall-man1
+	install-man1 install-man5 install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-info-am \
+	uninstall-man uninstall-man1 uninstall-man5
 
 
 check-syntax:
