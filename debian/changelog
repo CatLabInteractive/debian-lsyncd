@@ -5,6 +5,8 @@ lsyncd (1.37-1) experimental; urgency=low
   * debian/control:
     - bump Standards-Version to 3.9.1
     - change debhelper build dependency to 7.0.50~
+  * add debian/patches/0001-fix-spelling-error.patch and
+    debian/patches/series to fix spelling errors in manual pages
 
  -- Jan Dittberner <jandd@debian.org>  Sat, 07 Aug 2010 19:17:06 +0200
 
