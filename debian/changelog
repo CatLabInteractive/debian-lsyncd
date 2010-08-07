@@ -2,6 +2,9 @@ lsyncd (1.37-1) experimental; urgency=low
 
   * NOT RELEASED YET
   * New upstream version.
+  * debian/control:
+    - bump Standards-Version to 3.9.1
+    - change debhelper build dependency to 7.0.50~
 
  -- Jan Dittberner <jandd@debian.org>  Sat, 07 Aug 2010 19:17:06 +0200
 
