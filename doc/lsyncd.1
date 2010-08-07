@@ -1,11 +1,11 @@
 .\"     Title: LSYNCD
 .\"    Author: Junichi Uekawa <dancer@debian.org>
 .\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
-.\"      Date: 07/11/2010
+.\"      Date: 08/03/2010
 .\"    Manual: lsyncd User Manual
 .\"    Source: lsyncd
 .\"
-.TH "LSYNCD" "1" "07/11/2010" "lsyncd" "lsyncd User Manual"
+.TH "LSYNCD" "1" "08/03/2010" "lsyncd" "lsyncd User Manual"
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -81,6 +81,11 @@ Put log here (DEFAULT: /var/log/lsyncd).
 \fB\-\-no\-daemon\fR
 .RS 3n
 Do not detach, log to stdout/stderr.
+.RE
+.PP
+\fB\-\-no\-startup\fR
+.RS 3n
+Skips the inital recursive rsync. This option is not adviced and may lead to failures if the target is missing directories. Know what you are doing if you use it.
 .RE
 .PP
 \fB\-\-pidfile \fR\fB\fIFILE\fR\fR
