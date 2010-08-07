@@ -1,11 +1,11 @@
 .\"     Title: LSYNCD.CONF.XML
 .\"    Author: Axel Kittenberger <axel.kittenberger@univie.ac.at>
 .\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
-.\"      Date: 07/11/2010
+.\"      Date: 08/05/2010
 .\"    Manual: lsyncd User Manual
 .\"    Source: lsyncd
 .\"
-.TH "LSYNCD.CONF.XML" "5" "07/11/2010" "lsyncd" "lsyncd User Manual"
+.TH "LSYNCD.CONF.XML" "5" "08/05/2010" "lsyncd" "lsyncd User Manual"
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -95,6 +95,16 @@ node is present lsyncd will not detach and log to stdout/stderr. Default is to d
 .RE
 .PP
 If a
+\fB<no\-startup>\fR
+node is present lsyncd will not initiate the recursive rsync call on startup. Not adviced, know what you are doing if using this.
+.sp
+.RS 3n
+.nf
+    <no\-startup/>
+.fi
+.RE
+.PP
+If a
 \fB<dry\-run>\fR
 node is present lsyncd will not call any actions (rsync) for test purposes. Default is not to run dry.
 .sp
@@ -156,6 +166,24 @@ if an <exclude\-from> file is specified. <source> will be replaced the source di
 .RS 3n
 .nf
     <callopts>
+     .PP
+With a
+\fB<inotify>\fR
+node you can control the inotify events lsyncd will register to. Each event is configured by a <event> child node and its attribute 'id'. The following events may be registered: ACCESS,ATTRIB,CLOSE_WRITE,CLOSE_NOWRITE,CREATE,DELETE,DELETE_SELF,MODIFY,MOVE_SELF,MOVED_FROM,MOVED_TO,OPEN. If the inotify node is omitted the following events are registered by default: IN_ATTRIB,IN_CLOSE_WRITE,IN_CREATE,IN_DELETE,IN_DELETE_SELF,IN_MOVED_FROM,IN_MOVED_TO,IN_DONT_FOLLOW,IN_ONLYDIR.
+
+     
+.sp
+.RS 3n
+.nf
+    <inotify>
+        <event id="MOVED_TO"/>
+        <event id="DELETE"/>
+    </inotify>
+.fi
+.RE
+.sp
+
+
         <option text="\-lt%r"/>
         <option text="\-\-delete"/>
         <exclude\-file/>
@@ -173,19 +201,22 @@ End of (optional) settings section.
 .fi
 .RE
 .SS "DIRECTORIES"
-.PP
+
++      .PP
 With
 \fB<directory>\fR
 nodes arbitrarily many sources to be watched can be specified. Within a <directory> entry you can again specify a
 \fB<binary>\fR,
-\fB<exclude\-from>\fR
-or a
+\fB<exclude\-from>\fR,
 \fB<callopt>\fR
+or a
+\fB<inotify>\fR
 node which will override global settings just for this source. See SETTINGS for details on this options.
-.PP
+
++      .PP
 The mandatory
 \fB<source>\fR
-node specifies with the parameter "path" the directory to watch and sync. (once in a while something is mandatory. Also at least one
+node specifies with the paramater "path" the directory to watch and sync. (once in a while something is mandatory. Also at least one
 \fB<target;>\fR
 node has to specified where to sync to. This has to be a format accepted by rsync.
 .sp
