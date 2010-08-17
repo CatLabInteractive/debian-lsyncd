@@ -8,7 +8,7 @@ lsyncd (1.37-1) experimental; urgency=low
   * add debian/patches/0001-fix-spelling-error.patch and
     debian/patches/series to fix spelling errors in manual pages
 
- -- Jan Dittberner <jandd@debian.org>  Sat, 07 Aug 2010 19:17:06 +0200
+ -- Jan Dittberner <jandd@debian.org>  Tue, 17 Aug 2010 11:15:50 +0200
 
 lsyncd (1.34-1) unstable; urgency=low
 
