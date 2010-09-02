@@ -1,3 +1,9 @@
+lsyncd (1.38-1) experimental; urgency=low
+
+  * New upstream version.
+
+ -- Jan Dittberner <jandd@debian.org>  Thu, 02 Sep 2010 19:46:53 +0200
+
 lsyncd (1.37-1) experimental; urgency=low
 
   * New upstream version.
