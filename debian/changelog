@@ -4,7 +4,7 @@ lsyncd (1.38-1) experimental; urgency=low
   * change debian/watch to remove the need for the Google code
     redirector
 
- -- Jan Dittberner <jandd@debian.org>  Thu, 02 Sep 2010 19:46:53 +0200
+ -- Jan Dittberner <jandd@debian.org>  Thu, 02 Sep 2010 19:51:08 +0200
 
 lsyncd (1.37-1) experimental; urgency=low
 
