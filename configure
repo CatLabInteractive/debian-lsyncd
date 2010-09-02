@@ -2002,7 +2002,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=lsyncd
- VERSION=1.37
+ VERSION=1.38
 
 
 cat >>confdefs.h <<_ACEOF

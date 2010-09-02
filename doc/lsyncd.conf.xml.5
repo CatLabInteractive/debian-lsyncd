@@ -1,11 +1,11 @@
 .\"     Title: LSYNCD.CONF.XML
 .\"    Author: Axel Kittenberger <axel.kittenberger@univie.ac.at>
 .\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
-.\"      Date: 08/05/2010
+.\"      Date: 09/01/2010
 .\"    Manual: lsyncd User Manual
 .\"    Source: lsyncd
 .\"
-.TH "LSYNCD.CONF.XML" "5" "08/05/2010" "lsyncd" "lsyncd User Manual"
+.TH "LSYNCD.CONF.XML" "5" "09/01/2010" "lsyncd" "lsyncd User Manual"
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -161,7 +161,7 @@ With a
 node you can control the arguments lsyncd will call the <binary> (rsync) with. Each child node will specify one argument. <option> specifies a literal argument. Only %r will be replaced with 'r' when rsycnd is supposed to work recursive (on startup of lsyncd) or 'd' on normal operations. <exclude\-file> will be replaced with
 \fB\-\-exclude\-from [FILE]\fR
 if an <exclude\-from> file is specified. <source> will be replaced the source directory to sync from. <destination> will be replace to the target to sync to. Default arguments are
-\fB\-lt%r \-\-delete {\-\-exclude\-from [FILE]} [SOURCE] [DIRECTORY]\fR.
+\fB\-lts%r \-\-delete {\-\-exclude\-from [FILE]} [SOURCE] [DIRECTORY]\fR.
 .sp
 .RS 3n
 .nf
@@ -184,7 +184,7 @@ node you can control the inotify events lsyncd will register to. Each event is c
 .sp
 
 
-        <option text="\-lt%r"/>
+        <option text="\-lts%r"/>
         <option text="\-\-delete"/>
         <exclude\-file/>
         <source/>
