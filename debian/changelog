@@ -1,6 +1,8 @@
 lsyncd (1.38-1) experimental; urgency=low
 
   * New upstream version.
+  * change debian/watch to remove the need for the Google code
+    redirector
 
  -- Jan Dittberner <jandd@debian.org>  Thu, 02 Sep 2010 19:46:53 +0200
 

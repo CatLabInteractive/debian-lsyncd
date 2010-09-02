@@ -1,2 +1,4 @@
 version=3
-http://googlecode.debian.net/p/lsyncd/lsyncd-(\d\.\d+)\.tar\.gz
+
+opts=downloadurlmangle=s#.*(lsyncd-([\d.]+)\.tar\.gz).*#http://lsyncd.googlecode.com/files/$1#,filenamemangle=s#.*(lsyncd-([\d.]+)\.tar\.gz).*#$1# \
+    http://code.google.com/p/lsyncd/downloads/list ^.*detail\?name=lsyncd-([\d.]+)\.tar\.gz.*
