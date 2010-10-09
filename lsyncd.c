@@ -78,9 +78,10 @@ const uint32_t standard_event_mask =
  * Importance of log messages
  */
 enum log_code {
-	DEBUG  = 1,
-	NORMAL = 2,
-	ERROR  = 3,
+	DEBUG   = 1,
+	VERBOSE = 2,
+	NORMAL  = 3,
+	ERROR   = 4,
 };
 
 /**
@@ -338,7 +339,7 @@ struct global_options {
  * Standard default options to call the binary with.
  */
 struct call_option standard_callopts[] = {
-	{ CO_TEXT,    "-lts%r"    },
+	{ CO_TEXT,    "-lts%r"   }, 
 	{ CO_TEXT,    "--delete" },
 	{ CO_EXCLUDE, NULL       },
 	{ CO_FILTER,  NULL       },
@@ -664,7 +665,8 @@ printlogf(const struct log *log,
 		}
 		break;
 
-	case NORMAL :
+	case VERBOSE :
+	case NORMAL  :
 		sysp = LOG_NOTICE;
 		if (!log || log->flag_nodaemon) {
 			flog2 = stdout;
@@ -1305,7 +1307,7 @@ get_arg_str(const struct log *log, char **argv, int argc) {
  *
  * @return true if successful, false if not.
  */
-bool
+pid_t
 action(const struct global_options *opts,
        struct dir_conf *dir_conf, 
        const char *src, 
@@ -1314,7 +1316,6 @@ action(const struct global_options *opts,
        bool recursive)
 {
 	pid_t pid;
-	int status;
 	const int MAX_ARGS = 100;
 	char * argv[MAX_ARGS];
 	int argc = 0;
@@ -1327,9 +1328,7 @@ action(const struct global_options *opts,
 	// makes a copy of all call parameters
 	// step 1 binary itself
 	argv[argc++] = s_strdup(log, dir_conf->binary ? dir_conf->binary : opts->default_binary, "argv");
-	
-	printlogf(log, NORMAL, "  %s %s --> %s%s", argv[0], src, dest, recursive ? " (recursive)" : "");
-	
+
 	// now all other parameters
 	for(; optp->kind != CO_EOL; optp++) {
 		switch (optp->kind) {
@@ -1369,7 +1368,7 @@ action(const struct global_options *opts,
 			// check for error condition
 			printlogf(log, ERROR, 
 			          "Error: too many (>%i) options passed", argc);
-			return false;
+			return 0;
 		}
 	}
 	argv[argc++] = NULL;
@@ -1389,7 +1388,7 @@ action(const struct global_options *opts,
 					s_free(argv[i]);
 				}
 			}
-			return true;
+			return 0;
 		}
 	}
 
@@ -1411,7 +1410,9 @@ action(const struct global_options *opts,
 		printlogf(log, ERROR, "Failed executing [%s]", binary);
 		terminate(log, LSYNCD_INTERNALFAIL);
 	}
-
+	
+	printlogf(log, NORMAL, "  %s %s --> %s%s [%d]", argv[0], src, dest, recursive ? " (recursive)" : "", pid);
+	
 	// free the memory from the arguments.
 	for (i = 0; i < argc; ++i) {
 		if (argv[i]) {
@@ -1419,24 +1420,7 @@ action(const struct global_options *opts,
 		}
 	}
 	
-	waitpid(pid, &status, 0);
-	assert(WIFEXITED(status));
-	if (WEXITSTATUS(status) == LSYNCD_INTERNALFAIL){
-		printlogf(log, ERROR, 
-		          "Fork exit code of %i, execv failure", 
-		          WEXITSTATUS(status));
-		return false;
-	} else if (WEXITSTATUS(status)) {
-		printlogf(log, NORMAL, 
-		          "Forked binary process returned non-zero return code: %i", 
-		          WEXITSTATUS(status));
-		return false;
-	}
-
-	printlogf(log, DEBUG, "Rsync of [%s%s%s] -> [%s] finished", src, 
-	                      filename ? "/" : "", filename ? filename : "",
-	                      dest);
-	return true;
+	return pid;
 }
 
 /**
@@ -1591,6 +1575,60 @@ buildpath(const struct log *log,
 }
 
 /**
+ * Waits for n children to return.
+ * Returns true if all had 0 exit code.
+ */
+bool
+waitchildren(const struct log *log,
+             pid_t *children,
+             int n) 
+{
+	int nr;      // amount of children returned 
+	bool retval = true;
+	for(nr = 0; nr < n;) {
+		int status, i;
+		pid_t pid = wait(&status);    // wait for a child.
+
+		if (!keep_going) {
+			// canceled.
+			return false;
+		}
+
+		for (i = 0; i < n; i++) {
+			if (children[i] == pid) { // found child in the list
+				children[i] = 0;
+				break;
+			}
+		}
+		if (i >= n) {
+			printlogf(log, DEBUG, "unknown child %d returned!", pid);
+			continue;
+		}
+		nr++;
+		assert(WIFEXITED(status));
+		if (WEXITSTATUS(status) == LSYNCD_INTERNALFAIL){
+			printlogf(log, ERROR, 
+		          "Fork exit code of %i, execv failure", 
+		          WEXITSTATUS(status));
+			retval = false;
+			continue;
+		} else if (WEXITSTATUS(status)) {
+			printlogf(log, NORMAL, 
+			          "Forked binary process returned non-zero return code: %i", 
+		    	      WEXITSTATUS(status));
+			retval = false;
+			continue;
+		}
+		printlogf(log, DEBUG, "Rsync of pid %d finished", pid);
+		if (nr + 1 < n) {
+			printlogf(log, DEBUG, "Waiting for another %d child(ren).", n - nr - 1);
+		}
+	}
+	printlogf(log, DEBUG, "Finished waiting for all children");
+	return retval;
+}
+
+/**
  * Syncs a directory.
  *   TODO: make better error handling (differ between
  *         directory gone away, and thus cannot work, or network
@@ -1611,9 +1649,9 @@ rsync_dir(const struct global_options *opts,
 {
 	char pathname[PATH_MAX+1];
 	char destname[PATH_MAX+1];
-	bool status = true;
 	char ** target;
 	const struct log *log = &opts->log;
+	int ntarget = 0;
 
 	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 		return false;
@@ -1625,18 +1663,47 @@ rsync_dir(const struct global_options *opts,
 		printlogf(log, NORMAL, "%s: acting for %s.", event_text, pathname);
 	}
 
+	// count the amount of targets
 	for (target = watch->dir_conf->targets; *target; target++) {
-		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
-			status = false;
-			continue;
+		ntarget++;
+	}
+
+	if (ntarget == 1) {
+		pid_t child;
+		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *watch->dir_conf->targets)) {
+			return false;
 		}
 		// call the action to propagate changes in the directory
-		if (!action(opts, watch->dir_conf, pathname, destname, filename, false)) {
+		child = action(opts, watch->dir_conf, pathname, destname, filename, false);
+		if (!child) {
 			printlogf(log, ERROR, "Action %s --> %s has failed.", pathname, destname);
+			return false;
+		}
+		return waitchildren(log, &child, 1);
+	} else {
+		bool status = true;
+		int ci = 0;   // position of children started.
+		pid_t *children = s_calloc(log, ntarget, sizeof(pid_t), "children pid list");
+		for (target = watch->dir_conf->targets; *target; target++) {
+			if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
+				status = false;
+				ntarget--;
+				continue;
+			}
+			// call the action to propagate changes in the directory
+			children[ci] = action(opts, watch->dir_conf, pathname, destname, filename, false);
+			if (!children[ci]) {
+				printlogf(log, ERROR, "Action %s --> %s has failed.", pathname, destname);
+				status = false;
+			}
+			ci++;
+		}
+		if (!waitchildren(log, children, ntarget)) {
 			status = false;
 		}
+		s_free(children);
+		return status;
 	}
-	return status;
 }
 
 /**
@@ -1665,7 +1732,11 @@ delay_or_act_dir(const struct global_options *opts,
 	char pathname[PATH_MAX+1];
 	
 	if (!delay) {
-		rsync_dir(opts, watch, filename, event_text);
+		if (opts->flag_singular) {
+			rsync_dir(opts, watch, filename, event_text);
+		} else {
+			rsync_dir(opts, watch, NULL, event_text);
+		}
 	} else {
 		bool ret;
 		if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
@@ -1706,6 +1777,31 @@ event_text_to_mask(char * text)
 	return mask;
 }
 
+/**
+ * Prints a verbose message how many items are left in the delay queue.
+ *
+ * @param opts    global options.
+ * @param delays  delays list.
+ */
+void
+print_queue(const struct global_options *opts, const struct delay_vector *delays) {
+	const struct log *log = &opts->log;
+	int expired = 0;
+	int future  = 0;
+	struct delay * d = delays->first;
+	while (d && time_after_eq(times(NULL), d->alarm) && keep_going) {
+		expired++;
+		d = d->next;
+	}
+	while (d && keep_going) {
+		future++;
+		d = d->next;
+	}
+	if (!keep_going) {
+		return;
+	}
+	printlogf(log, VERBOSE, "in queue: %d expired / %d delayed %s", expired, future, opts->flag_singular ? "files" : "dirs");
+}
 
 /**
  * Adds a directory including all subdirectories to watch.
@@ -2035,16 +2131,10 @@ master_loop(const struct global_options *opts,
 			struct exclude_vector *excludes,
             int inotify_fd)
 {
-	char buf[INOTIFY_BUF_LEN];
-	int len;
-	long clocks_per_sec = sysconf(_SC_CLK_TCK);
-
-	struct timeval tv;
-	fd_set readfds;
+	const struct log *log = &opts->log;
+	const long clocks_per_sec = sysconf(_SC_CLK_TCK);
 	clock_t now;
 	clock_t alarm;
-	const struct log *log = &opts->log;
-			
 
 	if (opts->delay > 0) {
 		if (clocks_per_sec <= 0) {
@@ -2054,7 +2144,10 @@ master_loop(const struct global_options *opts,
 	}
 
 	while (keep_going) {
+		char buf[INOTIFY_BUF_LEN];
 		int do_read;
+		int len;
+
 		if (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
 			// there is a delay that wants to be handled already
 			// do not read from inotify_fd and jump directly to delay handling
@@ -2065,6 +2158,9 @@ master_loop(const struct global_options *opts,
 			// a new event or "alarm" of an event to actually
 			// call its binary. The delay with the index 0 
 			// should have the nearest alarm time.
+			fd_set readfds;
+			struct timeval tv;
+
 			alarm = delays->first->alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
@@ -2123,6 +2219,12 @@ master_loop(const struct global_options *opts,
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
 		while (delays->first && time_after_eq(times(NULL), delays->first->alarm) && keep_going) {
+			if (log->loglevel <= VERBOSE) {
+				print_queue(opts, delays);
+			}
+			if (!keep_going) {
+				break;
+			}
 			if (opts->flag_singular) {
 				struct file_delay * fd = (struct file_delay *) delays->first->owner;
 				rsync_dir(opts, fd->watch, fd->filename, "delay expired");
@@ -2130,6 +2232,9 @@ master_loop(const struct global_options *opts,
 				rsync_dir(opts, (struct watch *) delays->first->owner, NULL, "delay expired");
 			}
 			remove_first_delay(opts, delays);
+		}
+		if (log->loglevel <= VERBOSE) {
+			print_queue(opts, delays);
 		}
 	}
 
@@ -2216,6 +2321,7 @@ print_help(char *arg0)
 	printf("  --pidfile FILE         Create a file containing pid of the daemon\n");
 	printf("  --scarce               Only log errors\n");
 	printf("  --stubborn             Ignore rsync errors on startup\n");
+	printf("  --verbose              Log more messages\n");
 	printf("  --version              Print version an exit\n");
 	printf("\n");
 	printf("EXCLUDE FILE: \n");
@@ -2258,6 +2364,7 @@ parse_callopts(struct global_options *opts, xmlNodePtr node) {
 		}
 		if (xmlStrcmp(cnode->name, BAD_CAST "option") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "exclude-file") &&
+		    xmlStrcmp(cnode->name, BAD_CAST "file-filter") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "source") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "destination")
 		   ) {
@@ -2426,7 +2533,7 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 			continue;
 		}
 		if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
-			opts->log.loglevel = 1;
+			opts->log.loglevel = DEBUG;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "delay")) {
 			char *p;
 			xc = xmlGetProp(snode, BAD_CAST "value");
@@ -2482,7 +2589,7 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "callopts")) {
 			opts->default_callopts = parse_callopts(opts, snode);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "scarce")) {
-			opts->log.loglevel = 3;
+			opts->log.loglevel = ERROR;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-daemon")) {
 			opts->log.flag_nodaemon = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-startup")) {
@@ -2491,6 +2598,8 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 			opts->flag_singular = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "stubborn")) {
 			opts->flag_stubborn = 1;
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "verbose")) {
+			opts->log.loglevel = VERBOSE;
 		} else {
 			printlogf(NULL, ERROR, "error unknown node in <settings> \"%s\"", snode->name);
 			terminate(NULL, LSYNCD_BADCONFIGFILE);
@@ -2570,24 +2679,25 @@ parse_options(struct global_options *opts, int argc, char **argv)
 	char **target;
 
 	static struct option long_options[] = {
-		{"binary",       1, NULL, 0}, 
+		{"binary",       1, NULL, 0       }, 
 #ifdef XML_CONFIG
-		{"conf",         1, NULL, 0}, 
+		{"conf",         1, NULL, 0       }, 
 #endif
-		{"debug",        0, NULL, 1},
-		{"delay",        1, NULL, 0}, 
-		{"dryrun",       0, NULL, 1}, 
-		{"exclude-from", 1, NULL, 0}, 
-		{"help",         0, NULL, 0}, 
-		{"logfile",      1, NULL, 0}, 
-		{"no-daemon",    0, NULL, 1}, 
-		{"no-startup",   0, NULL, 1}, 
-		{"pidfile",      1, NULL, 0}, 
-		{"scarce",       0, NULL, 3},
-		{"singular",     0, NULL, 1}, 
-		{"stubborn",     0, NULL, 1},
-		{"version",      0, NULL, 0}, 
-		{NULL,           0, NULL, 0}
+		{"debug",        0, NULL, DEBUG   },
+		{"delay",        1, NULL, 0       }, 
+		{"dryrun",       0, NULL, 1       }, 
+		{"exclude-from", 1, NULL, 0       }, 
+		{"help",         0, NULL, 0       }, 
+		{"logfile",      1, NULL, 0       }, 
+		{"no-daemon",    0, NULL, 1       }, 
+		{"no-startup",   0, NULL, 1       }, 
+		{"pidfile",      1, NULL, 0       }, 
+		{"scarce",       0, NULL, ERROR   },
+		{"singular",     0, NULL, 1       }, 
+		{"stubborn",     0, NULL, 1       },
+		{"version",      0, NULL, 0       }, 
+		{"verbose",      0, NULL, VERBOSE },
+		{NULL,           0, NULL, 0       }
 	};
 	bool read_conf = false;
 
@@ -2603,6 +2713,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 			if (!strcmp("scarce",     o->name)) o->flag = &opts->log.loglevel;
 			if (!strcmp("singular",   o->name)) o->flag = &opts->flag_singular;
 			if (!strcmp("stubborn",   o->name)) o->flag = &opts->flag_stubborn;
+			if (!strcmp("verbose",    o->name)) o->flag = &opts->log.loglevel;
 		}
 	}
 
@@ -2884,6 +2995,7 @@ one_main(int argc, char **argv)
 		if (daemon(0, 0)) {
 			printlogf(log, ERROR, "Cannot daemonize! (%d:%s)",
 			          errno, strerror(errno));
+			close(inotify_fd);
 			return LSYNCD_INTERNALFAIL;
 		}
 	}
@@ -2915,8 +3027,10 @@ one_main(int argc, char **argv)
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			char **target;
 			for (target = opts.dir_confs[i].targets; *target; ++target) {
+				pid_t child;
 				printlogf(log, NORMAL, "Initial recursive sync for %s -> %s", opts.dir_confs[i].source, *target);
-				if (!action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, NULL, true)) {
+				child = action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, NULL, true);
+				if (!child || !waitchildren(log, &child, 1)) {
 					printlogf(log, ERROR, "Initial rsync from %s -> %s failed%s", 
 					          opts.dir_confs[i].source, *target,
 					          opts.flag_stubborn ? ", but continuing because being stubborn." : ".");
@@ -2962,7 +3076,7 @@ one_main(int argc, char **argv)
 			s_free(excludes.data[i]);
 		}
 	}
-
+	close(inotify_fd);
 
 #ifdef MEMCHECK
 	fprintf(stderr, "Memcheck count: %d\n", memc);
