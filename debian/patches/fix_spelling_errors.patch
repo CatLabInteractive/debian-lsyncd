@@ -21,3 +21,14 @@ Subject: Fix several spelling errors
  	{nbsp}*lsyncd* ['OPTIONS'] -rsyncssh 'SOURCE' 'HOST' 'TARGETDIR' ...
  
  DESCRTIPTION
+--- a/lsyncd.c
++++ b/lsyncd.c
+@@ -1692,7 +1692,7 @@
+ 				LSYNCD_DEFAULT_RUNNER_FILE);
+ #else
+ 			logstring("Error", 
+-				"Using a staticly included runner as default.");
++				"Using a statically included runner as default.");
+ #endif
+ 			exit(-1); //ERRNO
+ 		}
