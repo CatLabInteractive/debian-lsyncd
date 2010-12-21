@@ -12,4 +12,4 @@ clean:
 	rm -rf autom4te.cache
 
 %:
-	dh $@
+	dh --with autotools_dev $@

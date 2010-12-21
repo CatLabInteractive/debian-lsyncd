@@ -5,6 +5,7 @@ lsyncd (2.0.0-1) experimental; urgency=low
     error.patch because the patch does not apply anymore
   * debian/control: add liblua5.1-0-dev to Build-Depends, add lua5.1 to
     Depends
+  * add --with autotools_dev to debian/rules
 
  -- Jan Dittberner <jandd@debian.org>  Sat, 04 Dec 2010 16:39:18 +0100
 
