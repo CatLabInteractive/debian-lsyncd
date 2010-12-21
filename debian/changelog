@@ -3,8 +3,8 @@ lsyncd (2.0.0-1) experimental; urgency=low
   * New upstream version.
   * remove debian/patches/series and debian/patches/0001-fix-spelling-
     error.patch because the patch does not apply anymore
-  * debian/control: add liblua5.1-0-dev, lua5.1 and pkg-config to
-    Build-Depends, add lua5.1 to Depends
+  * debian/control: add liblua5.1-0-dev, lua5.1, pkg-config, asciidoc and
+    xsltproc to Build-Depends, add lua5.1 to Depends
   * add --with autotools_dev to debian/rules
   * remove debian/lsyncd.docs (all documentation mentioned there got removed)
   * update debian/lsyncd.examples to include the examples directory

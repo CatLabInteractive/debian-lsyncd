@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Jan Dittberner <jandd@debian.org>
 Standards-Version: 3.9.1
-Build-Depends: debhelper (>= 7.0.50~), libxml2-dev, automake, liblua5.1-0-dev, lua5.1, pkg-config
+Build-Depends: debhelper (>= 7.0.50~), libxml2-dev, automake, liblua5.1-0-dev, lua5.1, pkg-config, asciidoc, xsltproc
 Homepage: http://code.google.com/p/lsyncd/
 Vcs-Git: git://git.debian.org/collab-maint/lsyncd.git
 Vcs-Browser: http://git.debian.org/?p=collab-maint/lsyncd.git
