@@ -12,7 +12,7 @@ lsyncd (2.0.0-1) experimental; urgency=low
   * replace debian/patches/0001-fix-spelling-error.patch with
     debian/patches/fix_spelling_errors.patch to fix spelling errors
 
- -- Jan Dittberner <jandd@debian.org>  Sat, 04 Dec 2010 16:39:18 +0100
+ -- Jan Dittberner <jandd@debian.org>  Tue, 21 Dec 2010 15:08:31 +0100
 
 lsyncd (1.39-1) experimental; urgency=low
 
