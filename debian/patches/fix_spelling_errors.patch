@@ -1,0 +1,23 @@
+Author: Jan Dittberner <jandd@debian.org>
+Subject: Fix several spelling errors
+
+--- a/doc/lsyncd.1.txt
++++ b/doc/lsyncd.1.txt
+@@ -8,7 +8,7 @@
+ 
+ NAME
+ ----
+-lsyncd - a daemon to continously syncronize dircectory trees 
++lsyncd - a daemon to continously synchronize directory trees 
+ 
+ SYNOPSIS
+ --------
+@@ -18,7 +18,7 @@
+ default rsync behaviour:::
+ 	{nbsp}*lsyncd* ['OPTIONS'] -rsync 'SOURCE' 'TARGET' ...
+ 
+-default rync+ssh bevahior (moves and deletes through ssh):::
++default rync+ssh behaviour (moves and deletes through ssh):::
+ 	{nbsp}*lsyncd* ['OPTIONS'] -rsyncssh 'SOURCE' 'HOST' 'TARGETDIR' ...
+ 
+ DESCRTIPTION
