@@ -130,6 +130,16 @@ sig_handler(int sig)
 	}
 }
 
+/**
+ * Non glibc builds need a real tms structure for times() call
+ */
+#ifdef __GLIBC__
+	static struct tms *dummy_tms = NULL;
+#else
+	static struct tms _dummy_tms;
+	static struct tms *dummy_tms = &_dummy_tms;
+#endif
+
 /*****************************************************************************
  * Logging
  ****************************************************************************/
@@ -185,7 +195,7 @@ add_logcat(const char *name, int priority)
 		return true;
 	}
 	if (!strcmp("scarce", name)) {
-		settings.log_level = LOG_ERR;
+		settings.log_level = LOG_WARNING;
 		return true;
 	}
 
@@ -401,7 +411,7 @@ pipe_writey(lua_State *L, struct observance *observance)
 		logstring("Normal", "broken pipe.");
 		nonobserve_fd(fd);
 	} else if (pm->pos >= pm->tlen) {
-		logstring("Debug", "finished pipe.");
+		logstring("Exec", "finished pipe.");
 		nonobserve_fd(fd);
 	}
 }
@@ -545,7 +555,7 @@ observe_fd(int fd,
 	if (observance_action) {
 		// TODO
 		logstring("Error", 
-	"internal, New observances in ready/writey handlers not yet supported");
+			"internal, New observances in ready/writey handlers not yet supported");
 		exit(-1); // ERRNO
 	}
 
@@ -606,6 +616,9 @@ nonobserve_fd(int fd)
 		exit(-1); //ERRNO
 	}
 
+	/* tidy up the observance */
+	observances[pos].tidy(observances + pos); 
+	
 	/* and moves the list down */
 	memmove(observances + pos, observances + pos + 1, 
 	        (observances_len - pos) * (sizeof(struct observance)));
@@ -689,7 +702,7 @@ user_obs_tidy(struct observance *obs)
  ****************************************************************************/
 
 static void daemonize(lua_State *L);
-static int l_stackdump(lua_State* L);
+int l_stackdump(lua_State* L);
 
 /**
  * Logs a message.
@@ -769,7 +782,7 @@ l_now(lua_State *L)
 	clock_t *j = lua_newuserdata(L, sizeof(clock_t));
 	luaL_getmetatable(L, "Lsyncd.jiffies");
 	lua_setmetatable(L, -2);
-	*j = times(NULL);
+	*j = times(dummy_tms);
 	return 1;
 }
 
@@ -804,6 +817,31 @@ l_exec(lua_State *L)
 	/* pipe file descriptors */
 	int pipefd[2];
 
+	/* expands tables if there are any */
+	{
+		int i;
+		for(i = 1; i <= lua_gettop(L); i++) {
+			if (lua_istable(L, i)) {
+				int tlen;
+				int it;
+				/* table is now on top of stack */
+				lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
+				lua_pushvalue(L, i);
+				lua_remove(L, i);
+				argc--;
+				tlen = lua_objlen(L, -1);
+				for (it = 1; it <= tlen; it++) {
+					lua_pushinteger(L, it);
+					lua_gettable(L, -2);
+					lua_insert(L,i);
+					i++;
+					argc++;
+				}
+				i--;
+				lua_pop(L, 1);
+			}
+		}
+	}
 	/* writes a log message, prepares the message only if actually needed. */
 	if (check_logcat("Exec") >= settings.log_level) {
 		int i;
@@ -825,16 +863,19 @@ l_exec(lua_State *L)
 			exit(-1); // ERRNO
 		}
 		pipe_text = lua_tolstring(L, 3, &pipe_len);
-		/* creates the pipe */
-		if (pipe(pipefd) == -1) {
-			logstring("Error", "cannot create a pipe!");
-			exit(-1); // ERRNO
+		if (strlen(pipe_text) > 0) {
+			/* creates the pipe */
+			if (pipe(pipefd) == -1) {
+				logstring("Error", "cannot create a pipe!");
+				exit(-1); // ERRNO
+			}
+			/* always close the write end for child processes */
+			close_exec_fd(pipefd[1]);
+			/* set the write end on non-blocking */
+			non_block_fd(pipefd[1]);
+		} else {
+			pipe_text = NULL;
 		}
-		/* always close the write end for child processes */
-		close_exec_fd(pipefd[1]);
-		/* set the write end on non-blocking */
-		non_block_fd(pipefd[1]);
-
 		argc -= 2;
 		li += 2;
 	}
@@ -856,6 +897,7 @@ l_exec(lua_State *L)
 		if (pipe_text) {
 			dup2(pipefd[0], STDIN_FILENO);
 		}
+		// close_exec_fd(pipefd[0]);
 		/* if lsyncd runs as a daemon and has a logfile it will redirect
 		   stdout/stderr of child processes to the logfile. */
 		if (is_daemon && settings.log_file) {
@@ -884,9 +926,8 @@ l_exec(lua_State *L)
 		len = write(pipefd[1], pipe_text, pipe_len);
 		if (len < 0) {
 			logstring("Normal", "immediatly broken pipe.");
-			close(pipefd[0]);
-		}
-		if (len == pipe_len) {
+			close(pipefd[1]);
+		} else if (len == pipe_len) {
 			/* usual and best case, the pipe accepted all input -> close */
 			close(pipefd[1]);
 			logstring("Exec", "one-sweeped pipe");
@@ -900,7 +941,6 @@ l_exec(lua_State *L)
 			pm->pos  = len;
 			observe_fd(pipefd[1], NULL, pipe_writey, pipe_tidy, pm);
 		}
-		close(pipefd[0]);
 	}
 	free(argv);
 	lua_pushnumber(L, pid);
@@ -967,7 +1007,7 @@ l_realdir(lua_State *L)
 /**
  * Dumps the LUA stack. For debugging purposes.
  */
-static int
+int
 l_stackdump(lua_State* L)
 {
 	int i;
@@ -1085,15 +1125,15 @@ l_configure(lua_State *L)
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
-		if (settings.pidfile) {
-			write_pidfile(L, settings.pidfile);
-		}
 		if (!settings.nodaemon && !is_daemon) {
 			if (!settings.log_file) {
 				settings.log_syslog = true;
 			}
 			logstring("Debug", "daemonizing now.");
 			daemonize(L);
+		}
+		if (settings.pidfile) {
+			write_pidfile(L, settings.pidfile);
 		}
 	} else if (!strcmp(command, "nodaemon")) {
 		settings.nodaemon = true;
@@ -1346,10 +1386,6 @@ register_lsyncd(lua_State *L)
 	register_inotify(L);
 	lua_settable(L, -3);
 #endif
-#ifdef LSYNCD_WITH_FSEVENTS
-	register_fsevents(L);
-	lua_settable(L, -3);
-#endif
 	lua_pop(L, 1);
 	if (lua_gettop(L)) {
 		logstring("Error", "internal, stack not empty in lsyncd_register()");
@@ -1451,7 +1487,7 @@ masterloop(lua_State *L)
 	while(true) {
 		bool have_alarm;
 		bool force_alarm;
-		clock_t now = times(NULL);
+		clock_t now = times(dummy_tms);
 		clock_t alarm_time;
 
 		/* queries runner about soonest alarm  */
@@ -1520,12 +1556,16 @@ masterloop(lua_State *L)
 					}
 				}
 
+				if (!observances_len) {
+					logstring("Error", 
+						"Internal fail, no observances, no monitor!");
+					exit(-1);
+				}
 				/* the great select */
 				pr = pselect(
 					observances[observances_len - 1].fd + 1,
 					&rfds, &wfds, NULL, 
 					have_alarm ? &tv : NULL, &sigset);
-
 				if (pr >= 0) {
 					/* walks through the observances calling ready/writey */
 					observance_action = true;
@@ -1657,6 +1697,7 @@ main1(int argc, char *argv[])
 		/* prepares logging early */
 		int i = 1;
 		add_logcat("Normal", LOG_NOTICE);
+		add_logcat("Warn",   LOG_WARNING);
 		add_logcat("Error",  LOG_ERR);
 		while (i < argc) {
 			if (strcmp(argv[i], "-log") && strcmp(argv[i], "--log")) {

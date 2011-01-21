@@ -9,6 +9,8 @@
 -- It works closely together with the Lsyncd core in lsyncd.c. This means it
 -- cannot be runned directly from the standard lua interpreter.
 --============================================================================
+-- require("profiler")
+-- profiler.start()
 
 -----
 -- A security measurement.
@@ -20,7 +22,7 @@ if lsyncd_version then
 		"You cannot use the lsyncd runner as configuration file!")
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0.0"
+lsyncd_version = "2.0.2"
 
 -----
 -- Hides the core interface from user scripts
@@ -154,6 +156,111 @@ local CountArray = (function()
 	return {new = new}
 end)()
 
+-----
+-- Queue
+--   optimized for pushing on the right and poping on the left.
+--  
+--
+Queue = (function()
+	
+	-----
+	-- Creates a new queue.
+	local function new() 
+		return { first = 1, last = 0, size = 0};
+	end
+
+	-----
+	-- Pushes a value on the queue.
+	-- Returns the last value
+	local function push(list, value)
+		if not value then 
+			error("Queue pushing nil value", 2)
+		end
+		local last = list.last + 1
+		list.last = last
+		list[last] = value
+		list.size = list.size + 1
+		return last
+	end
+
+	-----
+	-- Removes item at pos from Queue.
+	--
+	local function remove(list, pos)
+		if list[pos] == nil then
+			error("Removing nonexisting item in Queue", 2)
+		end
+		list[pos] = nil
+		
+		-- if removing first element, move list on.
+		if pos == list.first then
+			local last = list.last 
+			while list[pos] == nil and pos <= list.last do
+				pos = pos + 1 
+			end
+			list.first = pos
+		elseif pos == list.last then
+			while list[pos] == nil and pos >= list.first do
+				pos = pos - 1
+			end
+			list.last = pos
+		end
+
+		-- reset indizies if list is empty
+		if list.last < list.first then
+			list.first = 1
+			list.last  = 0
+		end
+		list.size = list.size - 1
+	end
+
+	-----
+	-- Stateless queue iterator.
+	local function iter(list, pos)
+		pos = pos + 1
+		while list[pos] == nil and pos <= list.last do
+			pos = pos + 1
+		end
+		if pos > list.last then
+			return nil
+		end
+		return pos, list[pos]
+	end
+	
+	-----
+	-- Stateless reverse queue iterator.
+	local function iterReverse(list, pos)
+		pos = pos - 1
+		while list[pos] == nil and pos >= list.first do
+			pos = pos - 1
+		end
+		if pos < list.first then
+			return nil
+		end
+		return pos, list[pos]
+	end
+
+	----
+	-- Iteraters through the queue
+	-- returning all non-nil pos-value entries
+	local function qpairs(list)
+		return iter, list, list.first - 1
+	end
+	
+	----
+	-- Iteraters backwards through the queue
+	-- returning all non-nil pos-value entries
+	local function qpairsReverse(list)
+		return iterReverse, list, list.last + 1
+	end
+
+	return {new = new, 
+			push = push, 
+			remove = remove, 
+			qpairs = qpairs, 
+			qpairsReverse = qpairsReverse}
+end)()
+
 ----
 -- Locks globals,
 -- no more globals can be created
@@ -213,7 +320,7 @@ local Delay = (function()
 			-- path and file/dirname of a move destination.
 			--
 			path2  = path2,
-		
+	
 			------
 			-- Status of the event. Valid stati are: 
 			-- 'wait'    ... the event is ready to be handled.
@@ -225,6 +332,10 @@ local Delay = (function()
 			--               insurrance.
 			--
 			status = "wait",
+		
+			-----
+			-- Position in the queue 
+			dpos = -1,
 		}
 		return o
 	end
@@ -408,7 +519,7 @@ local Combiner = (function()
 end)()
 
 -----
--- Creates inlets for syncs, the user interface for events.
+-- Creates inlets for syncs: the user interface for events.
 --
 local InletFactory = (function()
 	-- table to receive the delay of an event.
@@ -416,9 +527,9 @@ local InletFactory = (function()
 	local e2d = {}
 	-- table to receive the sync of an event or event list
 	local e2s = {}
-	-- dont stop the garbage collect to remove entries.
-	setmetatable(e2d, { __mode = 'kv' })
-	setmetatable(e2s, { __mode = 'kv' })
+	-- dont stop the garbage collector to remove entries.
+	setmetatable(e2d, { __mode = 'k' })
+	setmetatable(e2s, { __mode = 'k' })
 	
 	-----
 	-- removes the trailing slash from a path
@@ -631,18 +742,19 @@ local InletFactory = (function()
 				error("cannot find delay list from event list.")
 			end
 			local result = {}
-			for k, d in pairs(dlist) do
-				if type(k) == "number" then
-					local s1, s2
-					if mutator then
-						s1, s2 = mutator(d.etype, d.path, d.path2)
-					else
-						s1, s2 = d.path, d.path2
-					end
-					table.insert(result, s1)
-					if s2 then
-						table.insert(result, s2)
-					end
+			local resultn = 1
+			for k, d in ipairs(dlist) do
+				local s1, s2
+				if mutator then
+					s1, s2 = mutator(d.etype, d.path, d.path2)
+				else
+					s1, s2 = d.path, d.path2
+				end
+				result[resultn] = s1
+				resultn = resultn + 1
+				if s2 then
+					result[resultn] = s2
+					resultn = resultn + 1
 				end
 			end
 			return result
@@ -675,12 +787,12 @@ local InletFactory = (function()
 
 	
 	----
-	-- list of all inlets and their syncs
+	-- table of all inlets with their syncs
 	--
 	local inlets = {}
 
-	-- dont stop the garbage collect to remove entries.
-	setmetatable(inlets, { __mode = 'kv' })
+	-- dont stop the garbage collector to remove entries.
+	setmetatable(inlets, { __mode = 'v' })
 	
 	-----
 	-- Encapsulates a delay into an event for the user script.
@@ -750,6 +862,20 @@ local InletFactory = (function()
 			sync:rmExclude(pattern)
 		end,
 	
+		-----
+		-- gets the list of excludes in their original rsynlike patterns form.
+		--
+		getExcludes = function(sync)
+			-- creates a copy
+			local e = {}
+			local en = 1;
+			for k, _ in pairs(sync.excludes.list) do
+				e[en] = k;
+				en = en + 1;
+			end
+			return e;
+		end,
+
 		-----
 		-- Creates a blanketEvent that blocks everything
 		-- and is blocked by everything.
@@ -882,10 +1008,13 @@ local Excludes = (function()
 		p = string.gsub(p, "%-", "%-")
 		p = string.gsub(p, "%?", "[^/]")
 		p = string.gsub(p, "%*", "[^/]*")
-		-- this was a ** before v
+		-- this was a ** before 
 		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
-		p = string.gsub(p, "^/", "^") 
-		p = string.gsub(p, "/$", ".*/$") 
+		p = string.gsub(p, "^/", "^/") 
+		if p.byte(1) ~= 47 then -- does not begin with "/"
+			-- all matches should begin with "/".
+			p = "/" .. p;
+		end
 		log("Exclude", "toLuaPattern '",o,"' = '",p,'"')
 		return p
 	end
@@ -919,7 +1048,7 @@ local Excludes = (function()
 	-- Adds a list of patterns to exclude.
 	--
 	local function addList(self, plist)
-		for _, v in plist do
+		for _, v in ipairs(plist) do
 			add(self, v)
 		end
 	end
@@ -946,13 +1075,24 @@ local Excludes = (function()
 	end
 
 	-----
-	-- Tests if 'file' is excluded.
+	-- Tests if 'path' is excluded.
 	--
-	local function test(self, file)
+	local function test(self, path)
 		for _, p in pairs(self.list) do
-			if (string.match(file, p)) then
-				return true
+			if p:byte(-1) == 36 then
+				-- ends with $
+				if path:match(p) then
+					log("Exclude", "'",path,"' matches '",p,"' (1)")
+					return true
+				end
+			else
+				-- end either end with / or $ 
+				if path:match(p.."/") or path:match(p.."$") then
+					log("Exclude", "'",path,"' matches '",p,"' (2)")
+					return true
+				end
 			end
+			log("Exclude", "'",path,"' NOT matches '",p,"'")
 		end
 		return false
 	end
@@ -966,7 +1106,7 @@ local Excludes = (function()
 
 			-- functions
 			add      = add,
-			adList   = addList,
+			addList  = addList,
 			loadFile = loadFile,
 			remove   = remove,
 			test     = test,
@@ -1006,18 +1146,10 @@ local Sync = (function()
 	-- Removes a delay.
 	--
 	local function removeDelay(self, delay) 
-		local found
-		for i, d in ipairs(self.delays) do
-			if d == delay then
-				found = true
-				table.remove(self.delays, i)
-				break
-			end
+		if self.delays[delay.dpos] ~= delay then
+			error("Queue is broken, delay not a dpos")
 		end
-		
-		if not found then
-			error("Did not find a delay to be removed!")
-		end
+		Queue.remove(self.delays, delay.dpos)
 
 		-- free all delays blocked by this one. 
 		if delay.blocks then
@@ -1025,6 +1157,27 @@ local Sync = (function()
 				vd.status = "wait"
 			end
 		end
+	end
+
+	-----
+	-- Returns true if this Sync concerns about
+	-- 'path'
+	--
+	local function concerns(self, path)
+		-- not concerned if watch rootdir doesnt match
+		if not path:starts(self.source) then
+			return false
+		end
+
+		-- a sub dir and not concerned about subdirs
+		if self.config.subdirs == false and
+			path:sub(#self.source, -1):match("[^/]+/?")
+		then
+			return false
+		end
+
+		-- concerned if not excluded
+		return not self.excludes:test(path:sub(#self.source))
 	end
 
 	-----
@@ -1082,20 +1235,16 @@ local Sync = (function()
 					alarm = 1 
 				end
 				alarm = now() + alarm
-				for k, d in pairs(delay) do
-					if type(k) == "number" then
-						d.alarm = alarm
-						d.status = "wait"
-					end
+				for _, d in ipairs(delay) do
+					d.alarm = alarm
+					d.status = "wait"
 				end
 			end
-			for k, d in pairs(delay) do
-				if type(k) == "number" then
-					if rc ~= "again" then
-						removeDelay(self, d)
-					else
-						d.status = "wait"
-					end
+			for _, d in ipairs(delay) do
+				if rc ~= "again" then
+					removeDelay(self, d)
+				else
+					d.status = "wait"
 				end
 			end
 			log("Delay","Finished list = ",exitcode)
@@ -1127,13 +1276,13 @@ local Sync = (function()
 
 		-- exclusion tests
 		if not path2 then
-			-- simple test for 1 path events
+			-- simple test for single path events
 			if self.excludes:test(path) then
 				log("Exclude", "excluded ",etype," on '",path,"'")
 				return
 			end
 		else
-			-- for 2 paths (move) it might result into a split
+			-- for double paths (move) it might result into a split
 			local ex1 = self.excludes:test(path)
 			local ex2 = self.excludes:test(path2)
 			if ex1 and ex2 then
@@ -1178,28 +1327,27 @@ local Sync = (function()
 		if nd.etype == "Blanket" then
 			-- always stack blanket events on the last event
 			log("Delay", "Stacking blanket event.")
-			if #self.delays > 0 then
-				stack(self.delays[#self.delays], nd)
+			if self.delays.size > 0 then
+				stack(self.delays[self.delays.last], nd)
 			end
 			addDelayPath("", nd)
-			table.insert(self.delays, nd)
+			nd.dpos = Queue.push(self.delays, nd)
 			return
 		end
 
 		-- detects blocks and combos by working from back until 
 		-- front through the fifo
-		local il = #self.delays -- last delay
-		while il > 0 do
-			local od = self.delays[il]
+		for il, od in Queue.qpairsReverse(self.delays) do
+			-- asks Combiner what to do
 			local ac = Combiner.combine(od, nd) 
 
 			if ac then
 				if ac == "remove" then
-					table.remove(self.delays, il)
+					Queue.remove(self.delays, il)
 					return
 				elseif ac == "stack" then
 					stack(od, nd)
-					table.insert(self.delays, nd)
+					nd.dpos = Queue.push(self.delays, nd)
 					return
 				elseif ac == "absorb" then
 					return
@@ -1224,7 +1372,7 @@ local Sync = (function()
 			log("Delay", "New ",nd.etype,":",nd.path)
 		end
 		-- no block or combo
-		table.insert(self.delays, nd)
+		nd.dpos = Queue.push(self.delays, nd)
 	end
 	
 
@@ -1239,7 +1387,7 @@ local Sync = (function()
 		-- first checks if more processses could be spawned 
 		if self.processes:size() < self.config.maxProcesses then
 			-- finds the nearest delay waiting to be spawned
-			for _, d in ipairs(self.delays) do
+			for _, d in Queue.qpairs(self.delays) do
 				if d.status == "wait" then
 					return d.alarm 
 				end
@@ -1258,6 +1406,8 @@ local Sync = (function()
 	--
 	local function getDelays(self, test)
 		local dlist = {}
+		local dlistn = 1
+
 		local blocks = {}
 
 		----
@@ -1272,19 +1422,17 @@ local Sync = (function()
 			end
 		end
 
-		for i, d in ipairs(self.delays) do
+		for i, d in Queue.qpairs(self.delays) do
 			if d.status == "active" or
 				(test and not test(InletFactory.d2e(self, d))) 
 			then
 				getBlocks(d)
 			elseif not blocks[d] then
-				dlist[i] = d
+				dlist[dlistn] = d
+				dlistn = dlistn + 1
 			end
 		end
 		
-		--- TODO: make incremental indexes in dlist,
-		--        and replace pairs with ipairs.
-
 		return dlist
 	end
 
@@ -1297,9 +1445,9 @@ local Sync = (function()
 			-- no new processes
 			return
 		end
-		for _, d in ipairs(self.delays) do
-			if #self.delays < self.config.maxDelays then
-				-- time constrains only are only a concern if not maxed 
+		for _, d in Queue.qpairs(self.delays) do
+			if self.delays.size < self.config.maxDelays then
+				-- time constrains are only concerned if not maxed 
 				-- the delay FIFO already.
 				if d.alarm ~= true and timestamp < d.alarm then
 					-- reached point in stack where delays are in future
@@ -1321,9 +1469,9 @@ local Sync = (function()
 	-- Gets the next event to be processed.
 	--
 	local function getNextDelay(self, timestamp)
-		for i, d in ipairs(self.delays) do
-			if #self.delays < self.config.maxDelays then
-				-- time constrains only are only a concern if not maxed 
+		for i, d in Queue.qpairs(self.delays) do
+			if self.delays.size < self.config.maxDelays then
+				-- time constrains are only concerned if not maxed 
 				-- the delay FIFO already.
 				if d.alarm ~= true and timestamp < d.alarm then
 					-- reached point in stack where delays are in future
@@ -1343,7 +1491,7 @@ local Sync = (function()
 	--
 	local function addBlanketDelay(self)
 		local newd = Delay.new("Blanket", true, "")
-		table.insert(self.delays, newd)
+		newd.dpos = Queue.push(self.delays, newd)
 		return newd 
 	end
 	
@@ -1353,8 +1501,8 @@ local Sync = (function()
 	local function statusReport(self, f)
 		local spaces = "                    "
 		f:write(self.config.name," source=",self.source,"\n")
-		f:write("There are ",#self.delays, " delays\n")
-		for i, vd in ipairs(self.delays) do
+		f:write("There are ",self.delays.size, " delays\n")
+		for i, vd in Queue.qpairs(self.delays) do
 			local st = vd.status
 			f:write(st, string.sub(spaces, 1, 7 - #st))
 			f:write(vd.etype," ")
@@ -1377,13 +1525,16 @@ local Sync = (function()
 	end
 
 	-----
+	-- b
+
+	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
 		local s = {
 			-- fields
 			config = config,
-			delays = CountArray.new(),
+			delays = Queue.new(),
 			source = config.source,
 			processes = CountArray.new(),
 			excludes = Excludes.new(),
@@ -1392,6 +1543,7 @@ local Sync = (function()
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
 			collect         = collect,
+			concerns        = concerns,
 			delay           = delay,
 			getAlarm        = getAlarm,
 			getDelays       = getDelays,
@@ -1413,7 +1565,14 @@ local Sync = (function()
 
 		-- loads exclusions
 		if config.exclude then
-			s.excludes:addList(config.exclude)
+			local te = type(config.exclude)
+			if te == "table" then
+				s.excludes:addList(config.exclude)
+			elseif te == "string" then
+				s.excludes:add(config.exclude)
+			else
+				error("type for exclude must be table or string", 2)
+			end
 		end
 		if config.excludeFrom then
 			s.excludes:loadFile(config.excludeFrom)
@@ -1451,7 +1610,7 @@ local Syncs = (function()
 		-- first copies from source all 
 		-- non-defined non-integer keyed values 
 		for k, v in pairs(cs) do
-			if type(k) ~= "number" and not cd[k] then
+			if type(k) ~= "number" and cd[k] == nil then
 				cd[k] = v
 			end
 		end
@@ -1564,8 +1723,23 @@ local Syncs = (function()
 		return #list
 	end
 
+	------
+	-- tests if any sync is interested in path
+	--
+	local function concerns(path)
+		for _, s in ipairs(list) do
+			if s:concerns(path) then
+				return true
+			end
+		end
+		return false
+	end
+
 	-- public interface
-	return {add = add, iwalk = iwalk, size = size}
+	return {add = add, 
+	        concerns = concerns,
+	        iwalk = iwalk, 
+			size = size}
 end)()
 
 
@@ -1643,6 +1817,11 @@ local Inotify = (function()
 			"Inotify.addWatch(",path,", ",recurse,", ",
 			raiseSync,", ",raiseTime,")")
 
+		if not Syncs.concerns(path) then
+			log("Inotify", "not concerning '",path,"'")
+			return
+		end
+
 		-- lets the core registers watch with the kernel
 		local wd = lsyncd.inotify.addwatch(path);
 		if wd < 0 then
@@ -1686,7 +1865,7 @@ local Inotify = (function()
 				end
 			end
 			-- adds syncs for subdirs
-			if isdir and recurse then
+			if isdir then
 				addWatch(pd, true, raiseSync, raiseTime)
 			end
 		end
@@ -1717,10 +1896,7 @@ local Inotify = (function()
 	-- @param filename2 
 	--
 	local function event(etype, wd, isdir, time, filename, wd2, filename2)
-		local ftype;
-
 		if isdir then
-			ftype = "directory"
 			filename = filename .. "/"
 			if filename2 then
 				filename2 = filename2 .. "/"
@@ -1787,9 +1963,7 @@ local Inotify = (function()
 			end
 			sync:delay(etyped, time, relative, relative2)
 			
-			if isdir and 
-				(sync.config.subdirs or sync.config.subdirs == nil) 
-			then
+			if isdir then
 				if etyped == "Create" then
 					addWatch(path, true, sync, time)
 				elseif etyped == "Delete" then
@@ -1820,60 +1994,96 @@ local Inotify = (function()
 	}
 end)()
 
-------
----- Interface to OSX /dev/fsevents, watches the whole filesystems
 ----
----- All fsevents specific implementation should be enclosed here.
-----
---local Fsevents = (function()
---	-----
---	-- A list indexed by sync's containing the root path this
---	-- sync is interested in.
---	--
---	local syncPaths = {}
+-- Interface to OSX /dev/fsevents, watches the whole filesystems
 --
---	-----
---	-- adds a Sync to receive events
---	--
---	-- @param sync   Object to receive events
---	-- @param dir    dir to watch
---	--
---	local function addSync(sync, dir)
---		if syncRoots[sync] then
---			error("duplicate sync in Fanotify.addSync()")
---		end
---		-- TODO for non subdirs adddir only
---		syncRoots[sync] = dir
---	end
+-- All fsevents specific implementation should be enclosed here.
 --
---	-----
---	-- Called when any event has occured.
---	--
---	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
---	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
---	-- @param isdir     true if filename is a directory
---	-- @param time      time of event
---	-- @param filename  string filename without path
---	-- @param filename2 
---	--
---	local function event(etype, isdir, time, filename, filename2)
---		log("Fsevents", etype, isdir, time, filename, filename2)
---	end
---
---	-----
---	-- Writes a status report about inotifies to a filedescriptor
---	--
---	local function statusReport(f)
---		-- TODO
---	end
---
---	-- public interface
---	return { 
---		addSync = addSync, 
---		event = event, 
---		statusReport = statusReport 
---	}
---end)()
+local Fsevents = (function()
+	-----
+	-- A list indexed by sync's containing the root path this
+	-- sync is interested in.
+	--
+	local syncRoots = {}
+
+	-----
+	-- adds a Sync to receive events
+	--
+	-- @param sync   Object to receive events
+	-- @param dir    dir to watch
+	--
+	local function addSync(sync, dir)
+		if syncRoots[sync] then
+			error("duplicate sync in Fanotify.addSync()")
+		end
+		syncRoots[sync] = dir
+	end
+
+	-----
+	-- Called when any event has occured.
+	--
+	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
+	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
+	-- @param isdir     true if filename is a directory
+	-- @param time      time of event
+	-- @param filename  string filename without path
+	-- @param filename2 
+	--
+	local function event(etype, isdir, time, path, path2)
+		
+		if isdir then
+			path = path .. '/'
+			if path2 then
+				path2 = path2 .. '/'
+			end
+		end
+
+		log("Fsevents",etype,",",isdir,",",time,",",path,",",path2)
+	
+		for _, s in Syncs.iwalk() do repeat
+			local root = s.source
+			if not path:starts(root) then
+				break  -- continue
+			end
+			local relative  = splitPath(path, root)
+			local relative2 
+			if path2 then
+				relative2 = splitPath(path2, root)
+			end
+			
+			-- makes a copy of etype to possibly change it
+			local etyped = etype 
+			if etyped == 'Move' then
+				if not relative2 then
+					log("Normal", "Transformed Move to Create for ",
+						sync.config.name)
+					etyped = 'Create'
+				elseif not relative then
+					relative = relative2
+					relative2 = nil
+					log("Normal", "Transformed Move to Delete for ",
+						sync.config.name)
+					etyped = 'Delete'
+				end
+			end
+			s:delay(etyped, time, relative, relative2)
+		until true end
+	end
+
+	-----
+	-- Writes a status report about inotifies to a filedescriptor
+	--
+	local function statusReport(f)
+		-- TODO
+	end
+
+	-- public interface
+	return { 
+		addSync = addSync, 
+		event = event, 
+		statusReport = statusReport 
+	}
+end)()
 
 -----
 -- Holds information about the event monitor capabilities
@@ -2519,7 +2729,7 @@ function runner.initialize()
 	lockGlobals()
 
 	-- copies simple settings with numeric keys to "key=true" settings.
-	for k, v in pairs(settings) do
+	for k, v in ipairs(settings) do
 		if settings[v] then
 			log("Error", "Double setting '"..v.."'")
 			os.exit(-1) -- ERRNO
@@ -2592,7 +2802,7 @@ function runner.initialize()
 	for _, s in Syncs.iwalk() do
 		if s.config.monitor == "inotify" then
 			Inotify.addSync(s, s.source)
-		elseif s.config.monitor == "fanotify" then 
+		elseif s.config.monitor == "fsevents" then 
 			Fsevents.addSync(s, s.source)
 		else
 			error("sync "..s.config.name..
@@ -2650,6 +2860,7 @@ end
 -- Simply forwards it directly to the object.
 --
 runner.inotifyEvent = Inotify.event
+runner.fsEventsEvent = Fsevents.event
 
 -----
 -- Collector for every child process that finished in startup phase
@@ -2709,15 +2920,11 @@ end
 
 
 -----
--- Spawn a new child process
+-- Spawns a new child process.
 --
 -- @param agent   the reason why a process is spawned.
 --                normally this is a delay/event of a sync.
 --                it will mark the related files as blocked.
---                or it is a string saying "all", that this 
---                process blocks all events and is blocked by all
---                this is used on startup.
--- @param collect a table of exitvalues and the action that shall taken.
 -- @param binary  binary to call
 -- @param ...     arguments
 --
@@ -2727,6 +2934,9 @@ function spawn(agent, binary, ...)
 	end
 	if lsyncdStatus == "fade" then
 		log("Normal", "ignored spawn processs since status fading")
+	end
+	if type(binary) ~= "string" then
+		error("calling spawn(agent, binary, ...), binary is not a string", 2)
 	end
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then
@@ -2742,10 +2952,8 @@ function spawn(agent, binary, ...)
 			sync.processes[pid] = dol
 		else 
 			-- is a list
-			for k, d in pairs(dol) do
-				if type(k) == "number" then
-					d.status = "active"
-				end
+			for _, d in ipairs(dol) do
+				d.status = "active"
 			end
 			sync.processes[pid] = dol
 		end
@@ -2785,7 +2993,7 @@ alarm = UserAlarms.alarm
 -- Returns true if 'String' starts with 'Start'
 --
 function string.starts(String,Start)
-	return string.sub(String,1,string.len(Start))==Start
+	return string.sub(String,1,#Start)==Start
 end
 
 -----
@@ -2793,7 +3001,7 @@ end
 -- Returns true if 'String' ends with 'End'
 --
 function string.ends(String,End)
-	return End=='' or string.sub(String,-string.len(End))==End
+	return End=='' or string.sub(String,-#End)==End
 end
 
 
@@ -2851,14 +3059,16 @@ local default_rsync = {
 				return 
 			end
 			return p:gsub("%?", "\\?"):
-			   	     gsub("%*", "\\*"):
-					 gsub("%[", "\\["):
-					 gsub("%]", "\\]")
+			       gsub("%*", "\\*"):
+			       gsub("%[", "\\["):
+			       gsub("%]", "\\]")
 		end
 
 		local paths = elist.getPaths(
 			function(etype, path1, path2) 
-				if etype == "Delete" and string.byte(path1, -1) == 47 then
+				if (etype == "Delete" or etype == "Create") 
+					and string.byte(path1, -1) == 47 
+				then
 					return sub(path1) .. "***", sub(path2)
 				else
 					return sub(path1), sub(path2)
@@ -2871,7 +3081,7 @@ local default_rsync = {
 
 		-- adds one entry into the filter
 		-- @param path ... path to add
-		-- @param leaf ... true if this the orinal path
+		-- @param leaf ... true if this the original path
 		--                 false if its a parent
 		local function addToFilter(path) 
 			if filterP[path] then
@@ -2924,12 +3134,28 @@ local default_rsync = {
 		if string.sub(config.target, -1) ~= "/" then
 			config.target = config.target .. "/"
 		end
-		log("Normal", "recursive startup rsync: ", config.source,
-			" -> ", config.target)
-		spawn(event, "/usr/bin/rsync", 
-			"--delete",
-			config.rsyncOps, "-r", 
-			config.source, config.target)
+
+		local excludes = inlet.getExcludes();
+		if #excludes == 0 then
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.target)
+			spawn(event, "/usr/bin/rsync", 
+				"--delete",
+				config.rsyncOps, "-r", 
+				config.source, 
+				config.target)
+		else
+			local exS = table.concat(excludes, "\n")
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.target," excluding\n", exS)
+			spawn(event, "/usr/bin/rsync",  
+				"<", exS,
+				"--exclude-from=-",
+				"--delete",
+				config.rsyncOps, "-r", 
+				config.source, 
+				config.target)
+		end
 	end,
 
 	-----
@@ -3025,6 +3251,7 @@ local default_rsyncssh = {
 		spawn(elist, "/usr/bin/rsync", 
 			"<", zPaths, 
 			config.rsyncOps,
+			"-r",
 			"--from0",
 			"--files-from=-",
 			config.source, 
@@ -3083,14 +3310,30 @@ local default_rsyncssh = {
 		if string.sub(config.targetdir, -1) ~= "/" then
 			config.targetdir = config.targetdir .. "/"
 		end
-		log("Normal", "recursive startup rsync: ", config.source,
-			" -> ", config.host .. ":" .. config.targetdir)
-		spawn(event, "/usr/bin/rsync", 
-			"--delete",
-			"-r", 
-			config.rsyncOps, 
-			config.source, 
-			config.host .. ":" .. config.targetdir)
+
+		local excludes = inlet.getExcludes();
+		if #excludes == 0 then
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.host .. ":" .. config.targetdir)
+			spawn(event, "/usr/bin/rsync", 
+				"--delete",
+				"-r", 
+				config.rsyncOps, 
+				config.source, 
+				config.host .. ":" .. config.targetdir)
+		else
+			local exS = table.concat(excludes, "\n")
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
+			spawn(event, "/usr/bin/rsync",  
+				"<", exS,
+				"--exclude-from=-",
+				"--delete",
+				"-r",
+				config.rsyncOps, 
+				config.source, 
+				config.host .. ":" .. config.targetdir)
+		end
 	end,
 
 	-----
