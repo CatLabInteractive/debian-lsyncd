@@ -3,15 +3,6 @@ Subject: Fix several spelling errors
 
 --- a/doc/lsyncd.1.txt
 +++ b/doc/lsyncd.1.txt
-@@ -8,7 +8,7 @@
- 
- NAME
- ----
--lsyncd - a daemon to continously syncronize dircectory trees 
-+lsyncd - a daemon to continously synchronize directory trees 
- 
- SYNOPSIS
- --------
 @@ -18,7 +18,7 @@
  default rsync behaviour:::
  	{nbsp}*lsyncd* ['OPTIONS'] -rsync 'SOURCE' 'TARGET' ...
@@ -23,7 +14,7 @@ Subject: Fix several spelling errors
  DESCRTIPTION
 --- a/lsyncd.c
 +++ b/lsyncd.c
-@@ -1692,7 +1692,7 @@
+@@ -1733,7 +1733,7 @@
  				LSYNCD_DEFAULT_RUNNER_FILE);
  #else
  			logstring("Error", 
