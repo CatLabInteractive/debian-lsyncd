@@ -10,7 +10,7 @@
 </refmeta>
 <refnamediv>
     <refname>lsyncd</refname>
-    <refpurpose>a daemon to continously syncronize dircectory trees</refpurpose>
+    <refpurpose>a daemon to continuously synchronize directory trees</refpurpose>
 </refnamediv>
 <refsynopsisdiv>
 <variablelist>

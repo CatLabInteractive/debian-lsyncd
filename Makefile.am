@@ -2,9 +2,9 @@ AUTOMAKE_OPTIONS = foreign
 CFLAGS += -Wall $(LUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
-#if INOTIFY
+if INOTIFY
 lsyncd_SOURCES += inotify.c
-#endif
+endif
 #if FANOTIFY
 #lsyncd_SOURCES += fanotify.c
 #endif
@@ -22,7 +22,10 @@ dist_example_DATA = \
 	examples/limagemagic.lua \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
-TESTS = tests/l4-rsync-data.sh
+TESTS = \
+	tests/churn-rsync.lua \
+	tests/churn-rsyncssh.lua \
+	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
 EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml

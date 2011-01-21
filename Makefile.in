@@ -32,8 +32,9 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = lsyncd$(EXEEXT)
+@INOTIFY_TRUE@am__append_1 = inotify.c
 # or compiles it into the binary
-@RUNNER_FALSE@am__append_1 = luac.o
+@RUNNER_FALSE@am__append_2 = luac.o
 subdir = .
 DIST_COMMON = $(am__configure_deps) $(dist_example_DATA) \
 	$(dist_man1_MANS) $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
@@ -52,10 +53,12 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
 	"$(DESTDIR)$(exampledir)" "$(DESTDIR)$(runnerdir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_lsyncd_OBJECTS = lsyncd.$(OBJEXT) inotify.$(OBJEXT)
+am__lsyncd_SOURCES_DIST = lsyncd.h lsyncd.c lsyncd.lua inotify.c
+@INOTIFY_TRUE@am__objects_1 = inotify.$(OBJEXT)
+am_lsyncd_OBJECTS = lsyncd.$(OBJEXT) $(am__objects_1)
 lsyncd_OBJECTS = $(am_lsyncd_OBJECTS)
 am__DEPENDENCIES_1 =
-lsyncd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__append_1)
+lsyncd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__append_2)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -64,7 +67,7 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(lsyncd_SOURCES)
-DIST_SOURCES = $(lsyncd_SOURCES)
+DIST_SOURCES = $(am__lsyncd_SOURCES_DIST)
 man1dir = $(mandir)/man1
 NROFF = nroff
 MANS = $(dist_man1_MANS)
@@ -179,9 +182,7 @@ target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
-#if INOTIFY
-lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua inotify.c
-#endif
+lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua $(am__append_1)
 #if FANOTIFY
 #lsyncd_SOURCES += fanotify.c
 #endif
@@ -189,7 +190,7 @@ lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua inotify.c
 #if FSEVENTS
 #lsyncd_SOURCES += fsevents.c
 #endif
-lsyncd_LDADD = $(LUA_LIBS) $(am__append_1)
+lsyncd_LDADD = $(LUA_LIBS) $(am__append_2)
 exampledir = $(datarootdir)/doc/@PACKAGE@
 dist_example_DATA = \
 	examples/lbash.lua \
@@ -199,7 +200,11 @@ dist_example_DATA = \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
 
-TESTS = tests/l4-rsync-data.sh
+TESTS = \
+	tests/churn-rsync.lua \
+	tests/churn-rsyncssh.lua \
+	tests/l4rsyncdata.lua
+
 dist_man1_MANS = doc/lsyncd.1
 EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml
 
