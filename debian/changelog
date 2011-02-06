@@ -1,3 +1,9 @@
+lsyncd (2.0.2-2) unstable; urgency=low
+
+  * Upload to unstable
+
+ -- Jan Dittberner <jandd@debian.org>  Sun, 06 Feb 2011 11:33:59 +0100
+
 lsyncd (2.0.2-1) experimental; urgency=low
 
   * New upstream version.
