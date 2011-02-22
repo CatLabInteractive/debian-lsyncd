@@ -4,6 +4,9 @@ lsyncd (2.0.2-3) UNRELEASED; urgency=low
     base script
   * add documentation on how to use the init script in
     debian/README.Debian
+  * add debian/patches/dont_install_lua_as_docs.patch to not install lua
+    scripts to the documentation dir (they are installed as examples by
+    debian/rules)
 
  -- Jan Dittberner <jandd@debian.org>  Tue, 22 Feb 2011 21:00:36 +0100
 

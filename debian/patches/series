@@ -1,1 +1,2 @@
 fix_spelling_errors.patch
+dont_install_lua_as_docs.patch
