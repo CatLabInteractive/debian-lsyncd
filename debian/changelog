@@ -1,3 +1,10 @@
+lsyncd (2.0.2-3) UNRELEASED; urgency=low
+
+  * Add debian/lsyncd.init (Closes: #614391) thanks to Ignace Mouzannar for the
+    base script
+
+ -- Jan Dittberner <jandd@debian.org>  Tue, 22 Feb 2011 21:00:36 +0100
+
 lsyncd (2.0.2-2) unstable; urgency=low
 
   * Upload to unstable
