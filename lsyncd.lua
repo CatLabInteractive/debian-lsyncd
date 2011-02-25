@@ -22,7 +22,7 @@ if lsyncd_version then
 		"You cannot use the lsyncd runner as configuration file!")
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0.2"
+lsyncd_version = "2.0.3"
 
 -----
 -- Hides the core interface from user scripts
@@ -563,6 +563,9 @@ local InletFactory = (function()
 			return e2s[event].config
 		end,
 
+		-----
+		-- Returns the inlet belonging to an event.
+		-- 
 		inlet = function(event)
 			return e2s[event].inlet
 		end,
@@ -578,14 +581,17 @@ local InletFactory = (function()
 		end,
 
 		-----
-		-- Tells script this isnt a list.
+		-- Tells this isn't a list.
 		--
 		isList = function()
 			return false
 		end,
 
 		-----
-		-- Status
+		-- Return the status of the event.
+		-- Can be:
+		--    'wait', 'active', 'block'.
+		-- 
 		status = function(event)
 			return e2d[event].status
 		end,
@@ -1011,7 +1017,7 @@ local Excludes = (function()
 		-- this was a ** before 
 		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
 		p = string.gsub(p, "^/", "^/") 
-		if p.byte(1) ~= 47 then -- does not begin with "/"
+		if p:sub(1,2) ~= "^/" then -- does not begin with "^/"
 			-- all matches should begin with "/".
 			p = "/" .. p;
 		end
@@ -1082,17 +1088,17 @@ local Excludes = (function()
 			if p:byte(-1) == 36 then
 				-- ends with $
 				if path:match(p) then
-					log("Exclude", "'",path,"' matches '",p,"' (1)")
+					--log("Exclude", "'",path,"' matches '",p,"' (1)")
 					return true
 				end
 			else
 				-- end either end with / or $ 
 				if path:match(p.."/") or path:match(p.."$") then
-					log("Exclude", "'",path,"' matches '",p,"' (2)")
+					--log("Exclude", "'",path,"' matches '",p,"' (2)")
 					return true
 				end
 			end
-			log("Exclude", "'",path,"' NOT matches '",p,"'")
+			--log("Exclude", "'",path,"' NOT matches '",p,"'")
 		end
 		return false
 	end
@@ -1330,7 +1336,6 @@ local Sync = (function()
 			if self.delays.size > 0 then
 				stack(self.delays[self.delays.last], nd)
 			end
-			addDelayPath("", nd)
 			nd.dpos = Queue.push(self.delays, nd)
 			return
 		end
@@ -1626,17 +1631,13 @@ local Syncs = (function()
 	-- Adds a new directory to observe.
 	--
 	local function add(config)
-		-----
 		-- Creates a new config table and inherit all keys/values
 		-- from integer keyed tables
-		--
 		local uconfig = config
 		config = {}
 		inherit(config, uconfig)
 	
-		-----
 		-- Lets settings or commandline override delay values.
-		--
 		if settings then
 			config.delay = settings.delay or config.delay
 		end
@@ -2562,6 +2563,9 @@ USAGE:
   
   default rsync with mv's through ssh:
     lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
+  
+  default local copying mechanisms (cp|mv|rm):
+    lsyncd [OPTIONS] -direct [SOURCE] [TARGETDIR]
 
 OPTIONS:
   -delay SECS         Overrides default delay times
@@ -2652,6 +2656,11 @@ function runner.configure(args, monitors)
 			{3, function(src, host, tdir) 
 				clSettings.syncs = clSettings.syncs or {}
 				table.insert(clSettings.syncs, {"rsyncssh", src, host, tdir})
+			end},
+		direct = 
+			{2, function(src, trg) 
+				clSettings.syncs = clSettings.syncs or {}
+				table.insert(clSettings.syncs, {"direct", src, trg})
 			end},
 		version  =
 			{0, function()
@@ -2751,6 +2760,8 @@ function runner.initialize()
 				sync{default.rsync, source=s[2], target=s[3]}
 			elseif s[1] == "rsyncssh" then
 				sync{default.rsyncssh, source=s[2], host=s[3], targetdir=s[4]}
+			elseif s[1] == "direct" then
+				sync{default.direct, source=s[2], target=s[3]}
 			end
 		end
 	end
@@ -2938,14 +2949,29 @@ function spawn(agent, binary, ...)
 	if type(binary) ~= "string" then
 		error("calling spawn(agent, binary, ...), binary is not a string", 2)
 	end
+	local dol = InletFactory.getDelayOrList(agent)
+	if not dol then
+		error("spawning with an unknown agent", 2)
+	end
+
+	-- checks if spawn is called on already active event
+	if dol.status then
+		if dol.status ~= "wait" then
+			error("Spawn() called on an non-waiting event", 2)
+		end
+	else -- is a list
+		for _, d in ipairs(dol) do
+			if d.status ~= "wait" and d.status ~= "block" then
+				error("Spawn() called on an non-waiting event list", 2)
+			end
+		end
+	end
+
 	local pid = lsyncd.exec(binary, ...)
+
 	if pid and pid > 0 then
 		local sync = InletFactory.getSync(agent)
 		-- delay or list
-		local dol = InletFactory.getDelayOrList(agent)
-		if not dol then
-			error("spawning with an unknown agent", 2)
-		end
 		if dol.status then
 			-- is a delay
 			dol.status = "active"
@@ -3039,7 +3065,6 @@ local ssh_exitcodes = {
 	[255] = "again",
 }
 
-
 -----
 -- Lsyncd classic - sync with rsync
 --
@@ -3049,7 +3074,11 @@ local default_rsync = {
 	--
 	action = function(inlet) 
 		-- gets all events ready for syncing
-		local elist = inlet.getEvents()
+		local elist = inlet.getEvents(
+			function(event) 
+				return event.etype ~= "Blanket"
+			end
+		)
 	
 		-----
 		-- replaces filter rule by literals
@@ -3066,16 +3095,15 @@ local default_rsync = {
 
 		local paths = elist.getPaths(
 			function(etype, path1, path2) 
-				if (etype == "Delete" or etype == "Create") 
-					and string.byte(path1, -1) == 47 
-				then
+				if etype == "Delete" and string.byte(path1, -1) == 47 then
 					return sub(path1) .. "***", sub(path2)
 				else
 					return sub(path1), sub(path2)
 				end
 			end)
 		-- stores all filters with integer index	
-		local filterI = {} 
+		--local filterI = inlet.getExcludes();
+		local filterI = {}
 		-- stores all filters with path index	
 		local filterP = {}
 
@@ -3131,6 +3159,8 @@ local default_rsync = {
 	init = function(inlet)
 		local config = inlet.getConfig()
 		local event = inlet.createBlanketEvent()
+		event.isStartup = true -- marker for user scripts 
+		
 		if string.sub(config.target, -1) ~= "/" then
 			config.target = config.target .. "/"
 		end
@@ -3157,9 +3187,18 @@ local default_rsync = {
 				config.target)
 		end
 	end,
+	
+	-----
+	-- Checks the configuration.
+	--
+	prepare = function(config)
+		if not config.target then
+			error("default.rsync needs 'target' configured", 4)
+		end
+	end,
 
 	-----
-	-- Calls rsync with this options.
+	-- Calls rsync with this default short opts.
 	--
 	rsyncOps = "-lts",
 
@@ -3223,19 +3262,21 @@ local default_rsyncssh = {
 			end
 
 			local sPaths = table.concat(paths, "\n")
-			local zPaths = table.concat(paths, "\000")
+			local zPaths = table.concat(paths, config.xargs.delimiter)
 			log("Normal", "Deleting list\n", sPaths)
 			spawn(elist, "/usr/bin/ssh", 
 				"<", zPaths,
 				config.host, 
-				"xargs", "-0", "rm -rf")
+				config.xargs.binary, config.xargs.xparams)
 			return
 		end
 
 		-- for everything else spawn a rsync
 		local elist = inlet.getEvents(
 			function(e) 
-				return e.etype ~= "Move" and e.etype ~= "Delete"
+				return e.etype ~= "Move" and 
+				       e.etype ~= "Delete" and
+					   e.etype ~= "Blanket"
 			end)
 		local paths = elist.getPaths()
 		
@@ -3248,14 +3289,15 @@ local default_rsyncssh = {
 		local sPaths = table.concat(paths, "\n") 
 		local zPaths = table.concat(paths, "\000")
 		log("Normal", "Rsyncing list\n", sPaths)
-		spawn(elist, "/usr/bin/rsync", 
+		spawn(
+			elist, "/usr/bin/rsync", 
 			"<", zPaths, 
 			config.rsyncOps,
-			"-r",
 			"--from0",
 			"--files-from=-",
 			config.source, 
-			config.host .. ":" .. config.targetdir)
+			config.host .. ":" .. config.targetdir
+		)
 	end,
 	
 	-----
@@ -3307,6 +3349,7 @@ local default_rsyncssh = {
 	init = function(inlet)
 		local config = inlet.getConfig()
 		local event = inlet.createBlanketEvent()
+		event.isStartup = true -- marker for user scripts 
 		if string.sub(config.targetdir, -1) ~= "/" then
 			config.targetdir = config.targetdir .. "/"
 		end
@@ -3315,29 +3358,45 @@ local default_rsyncssh = {
 		if #excludes == 0 then
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir)
-			spawn(event, "/usr/bin/rsync", 
+			spawn(
+				event, "/usr/bin/rsync", 
 				"--delete",
 				"-r", 
 				config.rsyncOps, 
 				config.source, 
-				config.host .. ":" .. config.targetdir)
+				config.host .. ":" .. config.targetdir
+			)
 		else
 			local exS = table.concat(excludes, "\n")
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
-			spawn(event, "/usr/bin/rsync",  
+			spawn(
+				event, "/usr/bin/rsync",  
 				"<", exS,
 				"--exclude-from=-",
 				"--delete",
 				"-r",
 				config.rsyncOps, 
 				config.source, 
-				config.host .. ":" .. config.targetdir)
+				config.host .. ":" .. config.targetdir
+			)
 		end
 	end,
 
 	-----
-	-- Calls rsync with this options
+	-- Checks the configuration.
+	--
+	prepare = function(config)
+		if not config.host then
+			error("default.rsyncssh needs 'host' configured", 4)
+		end
+		if not config.targetdir then
+			error("default.rsyncssh needs 'targetdir' configured", 4)
+		end
+	end,
+
+	-----
+	-- Calls rsync with this default short opts.
 	--
 	rsyncOps = "-lts",
 
@@ -3347,7 +3406,7 @@ local default_rsyncssh = {
 	maxProcesses = 1,
 	
 	------
-	-- Let the core not split move event.
+	-- Let the core not split move events.
 	--
 	onMove = true,
 	
@@ -3355,7 +3414,137 @@ local default_rsyncssh = {
 	-- Default delay. 
 	--
 	delay = 15,
+
+	-----
+	-- Delimiter, the binary and the paramters passed to xargs 
+	-- xargs is used to delete multiple remote files, when ssh access is 
+	-- available this is simpler than to build filters for rsync for this.
+	-- Default uses '0' as limiter, you might override this for old systems.
+	--
+	xargs = {delimiter = '\000', binary = "xargs", xparams = {"-0", "rm -rf"}}
 }
+
+-----
+-- Keeps two directories with /bin/cp, /bin/rm and /bin/mv in sync.
+-- Startup still uses rsync tough.
+--
+local default_direct = {
+	-----
+	-- Spawns rsync for a list of events
+	--
+	action = function(inlet) 
+		-- gets all events ready for syncing
+		local event, event2 = inlet.getEvent()
+
+		if event.etype == "Create" then
+			if event.isdir then
+				spawn(event,
+					"/bin/mkdir",
+					"-p",
+					event.targetPath
+				)
+			else
+				spawn(event, 
+					"/bin/cp", 
+					"-t", 
+					event.targetPathdir,
+					event.sourcePath 
+				)
+			end
+		elseif event.etype == "Modify" then
+			if event.isdir then
+				error("Do not know how to handle 'Modify' on dirs")
+			end
+			spawn(event, 
+				"/bin/cp", 
+				"-t", 
+				event.targetPathdir,
+				event.sourcePath 
+			)
+		elseif event.etype == "Delete" then
+			local tp = event.targetPath
+			-- extra security check
+			if tp == "" or tp == "/" or not tp then
+				error("Refusing to erase your harddisk")
+			end
+			spawn(event, "/bin/rm", "-rf", tp)
+		elseif event.etype == "Move" then
+			local tp = event.targetPath
+			-- extra security check
+			if tp == "" or tp == "/" or not tp then
+				error("Refusing to erase your harddisk")
+			end
+			spawnShell(event, "/bin/mv $1 $2 || /bin/rm -rf $1", event.targetPath, event2.targetPath)
+		else
+			log("Warn", "ignored an event of type '", event.etype, "'")
+			inlet.discardEvent(event)
+		end
+	end,
+	
+	-----
+	-- Called when collecting a finished child process
+	--
+	collect = function(agent, exitcode)
+		local config = agent.config
+
+		if not agent.isList and agent.etype == "Blanket" then
+			if exitcode == 0 then
+				log("Normal", "Startup of '",agent.source,"' finished.")
+			elseif rsync_exitcodes and 
+			       rsync_exitcodes[exitcode] == "again" 
+			then
+				log("Normal", 
+					"Retrying startup of '",agent.source,"'.")
+				return "again"
+			else
+				log("Error", "Failure on startup of '",agent.source,"'.")
+				terminate(-1) -- ERRNO
+			end
+			return
+		end
+
+		-- everything else just is as is, 
+		-- there is no network to retry something.
+		return nil
+	end,
+
+	-----
+	-- Spawns the recursive startup sync
+	-- identical to default rsync.
+	-- 
+	init = default_rsync.init,
+	
+	-----
+	-- Checks the configuration.
+	--
+	prepare = function(config)
+		if not config.target then
+			error("default.direct needs 'target' configured", 4)
+		end
+	end,
+
+	-----
+	-- Default delay is very short.
+	--
+	delay = 1,
+	
+	------
+	-- Let the core not split move events.
+	--
+	onMove = true,
+	
+	-----
+	-- For startup sync
+	--
+	rsyncOps = "-lts",
+
+	-----
+	-- On many system multiple disk operations just rather slow down
+	-- than speed up.
+
+	maxProcesses = 1,
+}
+
 
 -----
 -- The default table for the user to accesss.
@@ -3439,6 +3628,7 @@ default = {
 		-- calls a startup if given by user script.
 		if type(config.onStartup) == "function" then
 			local event = inlet.createBlanketEvent()
+			event.isStartup = true -- marker for user scripts 
 			local startup = config.onStartup(event)
 			if event.status == "wait" then
 				-- user script did not spawn anything
@@ -3471,6 +3661,11 @@ default = {
 	-- a default rsync configuration with ssh'd move and rm actions
 	--
 	rsyncssh = default_rsyncssh,
+	
+	-----
+	-- a default configuration using /bin/cp|rm|mv.
+	--
+	direct = default_direct,
 
 	-----
 	-- Minimum seconds between two writes of a status file.

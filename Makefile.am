@@ -5,9 +5,6 @@ lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
 if INOTIFY
 lsyncd_SOURCES += inotify.c
 endif
-#if FANOTIFY
-#lsyncd_SOURCES += fanotify.c
-#endif
 
 #if FSEVENTS
 #lsyncd_SOURCES += fsevents.c
@@ -20,11 +17,15 @@ dist_example_DATA = \
 	examples/lecho.lua \
 	examples/lgforce.lua \
 	examples/limagemagic.lua \
+	examples/lpostcmd.lua \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
 TESTS = \
 	tests/churn-rsync.lua \
 	tests/churn-rsyncssh.lua \
+	tests/churn-direct.lua \
+	tests/exclude-rsync.lua \
+	tests/exclude-rsyncssh.lua \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1

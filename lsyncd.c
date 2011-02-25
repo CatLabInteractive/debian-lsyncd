@@ -32,6 +32,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define LUA_USE_APICHECK 1
+
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -845,6 +847,7 @@ l_exec(lua_State *L)
 	/* writes a log message, prepares the message only if actually needed. */
 	if (check_logcat("Exec") >= settings.log_level) {
 		int i;
+		lua_checkstack(L, lua_gettop(L) + argc * 3 + 2);
 		lua_pushvalue(L, 1);
 		for(i = 1; i <= argc; i++) {
 			lua_pushstring(L, " [");
@@ -1078,7 +1081,7 @@ l_readdir (lua_State *L)
 			strcpy(entry, dirname);
 			strcat(entry, "/");
 			strcat(entry, de->d_name);
-			stat(entry, &st);
+			lstat(entry, &st);
 			isdir = S_ISDIR(st.st_mode);
 			free(entry);
 		} else {
