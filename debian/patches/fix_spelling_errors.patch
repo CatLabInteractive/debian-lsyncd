@@ -14,7 +14,7 @@ Subject: Fix several spelling errors
  DESCRTIPTION
 --- a/lsyncd.c
 +++ b/lsyncd.c
-@@ -1733,7 +1733,7 @@
+@@ -1736,7 +1736,7 @@
  				LSYNCD_DEFAULT_RUNNER_FILE);
  #else
  			logstring("Error", 
