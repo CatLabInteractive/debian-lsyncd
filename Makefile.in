@@ -183,9 +183,6 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua $(am__append_1)
-#if FANOTIFY
-#lsyncd_SOURCES += fanotify.c
-#endif
 
 #if FSEVENTS
 #lsyncd_SOURCES += fsevents.c
@@ -197,12 +194,16 @@ dist_example_DATA = \
 	examples/lecho.lua \
 	examples/lgforce.lua \
 	examples/limagemagic.lua \
+	examples/lpostcmd.lua \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
 
 TESTS = \
 	tests/churn-rsync.lua \
 	tests/churn-rsyncssh.lua \
+	tests/churn-direct.lua \
+	tests/exclude-rsync.lua \
+	tests/exclude-rsyncssh.lua \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
