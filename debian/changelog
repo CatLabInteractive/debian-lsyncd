@@ -1,10 +1,10 @@
-lsyncd (2.0.4-1) UNRELEASED; urgency=low
+lsyncd (2.0.4-1) unstable; urgency=low
 
   * New upstream version
   * remove debian/patches/fix_spelling_errors.patch that has been
     applied upstream
 
- -- Jan Dittberner <jandd@debian.org>  Sun, 27 Mar 2011 11:03:11 +0200
+ -- Jan Dittberner <jandd@debian.org>  Sun, 27 Mar 2011 11:06:53 +0200
 
 lsyncd (2.0.3-1) unstable; urgency=low
 
