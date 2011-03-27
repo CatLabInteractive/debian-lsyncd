@@ -30,17 +30,27 @@ default rsync behaviour:
 </term>
 <listitem>
 <simpara>
-        &#160;<emphasis role="strong">lsyncd</emphasis> [<emphasis>OPTIONS</emphasis>] -rsync <emphasis>SOURCE</emphasis> <emphasis>TARGET</emphasis> &#8230;
+        &#160;<emphasis role="strong">lsyncd</emphasis> [<emphasis>OPTIONS</emphasis>] -rsync <emphasis>SOURCEDIR</emphasis> <emphasis>TARGET</emphasis> &#8230;
 </simpara>
 </listitem>
 </varlistentry>
 <varlistentry>
 <term>
-default rync+ssh bevahior (moves and deletes through ssh):
+default rync+ssh bevahiour (moves and deletes through ssh):
 </term>
 <listitem>
 <simpara>
-        &#160;<emphasis role="strong">lsyncd</emphasis> [<emphasis>OPTIONS</emphasis>] -rsyncssh <emphasis>SOURCE</emphasis> <emphasis>HOST</emphasis> <emphasis>TARGETDIR</emphasis> &#8230;
+        &#160;<emphasis role="strong">lsyncd</emphasis> [<emphasis>OPTIONS</emphasis>] -rsyncssh <emphasis>SOURCEDIR</emphasis> <emphasis>TARGETHOST</emphasis> <emphasis>TARGETDIR</emphasis> &#8230;
+</simpara>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+default direct bevahiour (local file operations/rsync):
+</term>
+<listitem>
+<simpara>
+        &#160;<emphasis role="strong">lsyncd</emphasis> [<emphasis>OPTIONS</emphasis>] -direct <emphasis>SOURCEDIR</emphasis> <emphasis>TARGETDIR</emphasis> &#8230;
 </simpara>
 </listitem>
 </varlistentry>
