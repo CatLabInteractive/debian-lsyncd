@@ -22,7 +22,7 @@ if lsyncd_version then
 		"You cannot use the lsyncd runner as configuration file!")
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0.3"
+lsyncd_version = "2.0.4"
 
 -----
 -- Hides the core interface from user scripts
@@ -1002,16 +1002,16 @@ local Excludes = (function()
 	-- 
 	local function toLuaPattern(p)
 		local o = p
-		p = string.gsub(p, "%%", "%%")
-		p = string.gsub(p, "%^", "%^")
-		p = string.gsub(p, "%$", "%$")
-		p = string.gsub(p, "%(", "%(")
-		p = string.gsub(p, "%)", "%)")
-		p = string.gsub(p, "%.", "%.")
-		p = string.gsub(p, "%[", "%[")
-		p = string.gsub(p, "%]", "%]")
-		p = string.gsub(p, "%+", "%+")
-		p = string.gsub(p, "%-", "%-")
+		p = string.gsub(p, "%%", "%%%%")
+		p = string.gsub(p, "%^", "%%^")
+		p = string.gsub(p, "%$", "%%$")
+		p = string.gsub(p, "%(", "%%(")
+		p = string.gsub(p, "%)", "%%)")
+		p = string.gsub(p, "%.", "%%.")
+		p = string.gsub(p, "%[", "%%[")
+		p = string.gsub(p, "%]", "%%]")
+		p = string.gsub(p, "%+", "%%+")
+		p = string.gsub(p, "%-", "%%-")
 		p = string.gsub(p, "%?", "[^/]")
 		p = string.gsub(p, "%*", "[^/]*")
 		-- this was a ** before 
@@ -2360,7 +2360,7 @@ local StatusFile = (function()
 		log("Function", "write(", timestamp, ")")
 
 		-- some logic to not write too often
-		if settings.statusIntervall > 0 then
+		if settings.statusInterval > 0 then
 			-- already waiting
 			if alarm and timestamp < alarm then
 				log("Statusfile", "waiting(",timestamp," < ",alarm,")")
@@ -2369,7 +2369,7 @@ local StatusFile = (function()
 			-- determines when a next write will be possible
 			if not alarm then
 				local nextWrite = 
-					lastWritten and timestamp + settings.statusIntervall
+					lastWritten and timestamp + settings.statusInterval
 				if nextWrite and timestamp < nextWrite then
 					log("Statusfile", "setting alarm: ", nextWrite)
 					alarm = nextWrite
@@ -2772,13 +2772,27 @@ function runner.initialize()
 	if settings.logfile then
 		lsyncd.configure("logfile", settings.logfile)
 	end
+	if settings.logident then
+		lsyncd.configure("logident", settings.logident)
+	end
+	if settings.logfacility then
+		lsyncd.configure("logfacility", settings.logfacility)
+	end
 	if settings.pidfile then
 		lsyncd.configure("pidfile", settings.pidfile)
 	end
+
+	-- TODO: Remove after deprecation timespan.
+	if settings.statusIntervall ~= nil and settings.statusInterval == nil then
+		log("Warn", 
+		  "The setting 'statusIntervall' has been renamed to 'statusInterval'.")
+		settings.statusInterval = settings.statusIntervall
+	end
+
 	-----
 	-- transfers some defaults to settings 
-	if settings.statusIntervall == nil then
-		settings.statusIntervall = default.statusIntervall
+	if settings.statusInterval == nil then
+		settings.statusInterval = default.statusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do 
@@ -2987,7 +3001,7 @@ function spawn(agent, binary, ...)
 end
 
 -----
--- Spawns a child process using bash.
+-- Spawns a child process using the default shell.
 --
 function spawnShell(agent, command, ...)
 	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
@@ -3102,7 +3116,7 @@ local default_rsync = {
 				end
 			end)
 		-- stores all filters with integer index	
-		--local filterI = inlet.getExcludes();
+		-- local filterI = inlet.getExcludes();
 		local filterI = {}
 		-- stores all filters with path index	
 		local filterP = {}
@@ -3231,9 +3245,10 @@ local default_rsyncssh = {
 			log("Normal", "Moving ",event.path," -> ",event2.path)
 			spawn(event, "/usr/bin/ssh", 
 				config.host, "mv",
-				config.targetdir .. event.path, 
-				config.targetdir .. event2.path, 
-				"||", "rm", "-rf", config.targetdir .. event.path)
+				'\"' .. config.targetdir .. event.path .. '\"', 
+				'\"' .. config.targetdir .. event2.path .. '\"', 
+				"||", "rm", "-rf", 
+				'\"' .. config.targetdir .. event.path .. '\"')
 			return
 		end
 		
@@ -3670,7 +3685,7 @@ default = {
 	-----
 	-- Minimum seconds between two writes of a status file.
 	--
-	statusIntervall = 10,
+	statusInterval = 10,
 }
 
 -----

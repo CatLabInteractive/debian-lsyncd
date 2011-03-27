@@ -1,11 +1,11 @@
 .\"     Title: lsyncd
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 12/03/2010
+.\"      Date: 03/01/2011
 .\"    Manual: Lsyncd
 .\"    Source: Lsyncd 2.0.0
 .\"
-.TH "LSYNCD" "1" "12/03/2010" "Lsyncd 2\&.0\&.0" "Lsyncd"
+.TH "LSYNCD" "1" "03/01/2011" "Lsyncd 2\&.0\&.0" "Lsyncd"
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -25,17 +25,26 @@ default rsync behaviour:
 .RS 4
 \ \&\fBlsyncd\fR
 [\fIOPTIONS\fR] \-rsync
-\fISOURCE\fR
+\fISOURCEDIR\fR
 \fITARGET\fR
 \&...
 .RE
 .PP
-default rync+ssh bevahior (moves and deletes through ssh):
+default rync+ssh bevahiour (moves and deletes through ssh):
 .RS 4
 \ \&\fBlsyncd\fR
 [\fIOPTIONS\fR] \-rsyncssh
-\fISOURCE\fR
-\fIHOST\fR
+\fISOURCEDIR\fR
+\fITARGETHOST\fR
+\fITARGETDIR\fR
+\&...
+.RE
+.PP
+default direct bevahiour (local file operations/rsync):
+.RS 4
+\ \&\fBlsyncd\fR
+[\fIOPTIONS\fR] \-direct
+\fISOURCEDIR\fR
 \fITARGETDIR\fR
 \&...
 .RE
