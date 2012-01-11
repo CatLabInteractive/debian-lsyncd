@@ -1,4 +1,4 @@
-lsyncd (2.0.5-1) UNRELEASED; urgency=low
+lsyncd (2.0.5-1) unstable; urgency=low
 
   * New upstream version
   * debian/control:
@@ -10,7 +10,7 @@ lsyncd (2.0.5-1) UNRELEASED; urgency=low
   * add status command to debian/lsyncd.init (fixes Lintian complaint
     "init.d-script-does-not-implement-optional-option")
 
- -- Jan Dittberner <jandd@debian.org>  Thu, 12 Jan 2012 00:34:35 +0100
+ -- Jan Dittberner <jandd@debian.org>  Thu, 12 Jan 2012 00:57:21 +0100
 
 lsyncd (2.0.4-1) unstable; urgency=low
 
