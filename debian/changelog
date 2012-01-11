@@ -7,6 +7,8 @@ lsyncd (2.0.5-1) UNRELEASED; urgency=low
     - bump Standards-Version to 3.9.2 (no changes needed)
   * refresh debian/patches/dont_install_lua_as_docs.patch
   * update debian/copyright format
+  * add status command to debian/lsyncd.init (fixes Lintian complaint
+    "init.d-script-does-not-implement-optional-option")
 
  -- Jan Dittberner <jandd@debian.org>  Thu, 12 Jan 2012 00:34:35 +0100
 
