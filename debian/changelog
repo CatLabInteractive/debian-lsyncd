@@ -3,6 +3,7 @@ lsyncd (2.0.5-1) UNRELEASED; urgency=low
   * New upstream version
   * debian/control: add autotools-dev to Build-Depends (fixes Lintian
     error "missing-build-dependency-for-dh-addon")
+  * refresh debian/patches/dont_install_lua_as_docs.patch
 
  -- Jan Dittberner <jandd@debian.org>  Thu, 12 Jan 2012 00:34:35 +0100
 

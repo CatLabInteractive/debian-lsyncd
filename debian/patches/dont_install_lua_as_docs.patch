@@ -6,10 +6,10 @@ Description: upstream's Makefile.am defines variables to install the example
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -11,15 +11,6 @@
- #endif
+ endif
  
  lsyncd_LDADD = $(LUA_LIBS)
--exampledir = $(datarootdir)/doc/@PACKAGE@
+-exampledir = $(docdir)/
 -dist_example_DATA = \
 -	examples/lbash.lua \
 -	examples/lecho.lua \
