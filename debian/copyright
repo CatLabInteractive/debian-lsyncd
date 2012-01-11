@@ -1,13 +1,14 @@
-Format-Specification: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=135
-Name: lsyncd
-Maintainer: Axel Kittenberger <axel.kittenberger@univie.ac.at>
+Format-Specification: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=166
+Upstream-Name: lsyncd
+Upstream-Contact: Axel Kittenberger <axel.kittenberger@univie.ac.at>
 Source: http://code.google.com/p/lsyncd/
 
-Copyright: 2007-2009, Axel Kittenberger <axel.kittenberger@univie.ac.at>
-           Semi Malinen <treamur@kesto.net>
-           Jürgen "README" Mangler <juergen.mangler@univie.ac.at>
-           Eugene Sanivsky <eugenesan@gmail.com>
-           2008, Junichi Uekawa <dancerj@gmail.com>
+Files: *
+Copyright: 2007-2011, Axel Kittenberger
+           Semi Malinen
+           Jürgen "README" Mangler
+           Eugene Sanivsky
+           2008, Junichi Uekawa
 License: GPL-2+
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -29,7 +30,7 @@ License: GPL-2+
  `/usr/share/common-licenses/GPL-2'.
 
 Files: debian/*
-Copyright: 2009, Jan Dittberner <jandd@debian.org>
+Copyright: 2009-2012, Jan Dittberner <jandd@debian.org>
 License: GPL-2+
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
