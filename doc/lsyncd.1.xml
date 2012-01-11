@@ -5,7 +5,7 @@
 <refentrytitle>lsyncd</refentrytitle>
 <manvolnum>1</manvolnum>
 <refmiscinfo class="source">Lsyncd</refmiscinfo>
-<refmiscinfo class="version">2.0.0</refmiscinfo>
+<refmiscinfo class="version">2.0.5</refmiscinfo>
 <refmiscinfo class="manual">Lsyncd</refmiscinfo>
 </refmeta>
 <refnamediv>
@@ -58,22 +58,25 @@ default direct bevahiour (local file operations/rsync):
 </refsynopsisdiv>
 <refsect1 id="_descrtiption">
 <title>DESCRTIPTION</title>
-<simpara>Lsyncd(1) watches a local directory trees event monitor interface (inotify).
-It aggregates and combines events for a few seconds and then spawns one (or
-more) process(es) to synchronize the changes. By default this is rsync(1).
-Lsyncd is thus a light-weight live mirror solution that is comparatively easy
-to install not requiring new filesystems or blockdevices and does not hamper
-local filesystem performance.</simpara>
+<simpara>Lsyncd(1) watches local directory trees through an event monitor interface
+(inotify, fsevents).  It aggregates and combines events for a few seconds and
+then spawns one or more processes to synchronize the changes. By default this
+is rsync(1).  Lsyncd is thus a light-weight asynchronous live mirror solution
+that is comparatively easy to install not requiring new filesystems or
+blockdevices and does not hamper local filesystem performance.</simpara>
 
 <simpara>Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file
 and directory moves directly on the target instead of retransmitting the move
 destination over the wire.</simpara>
 
-<simpara>Fine-grained customizaton can be achieved through the CONFIG-FILE.  Custom
-action configs can even be written from scratch in cascading layers
-ranging from shell scripts to code written in the LUA(1) language.  This way
-simplicity can be balanced with powerfulness.  See the online manual for
-details on the CONFIG-FILE <ulink url="http://code.google.com/p/lsyncd/wiki/Lsyncd20Manual">http://code.google.com/p/lsyncd/wiki/Lsyncd20Manual</ulink></simpara>
+<simpara>Fine-grained customization can be achieved through the CONFIG-FILE.  Custom
+action configs can even be written from scratch in cascading layers ranging
+from shell scripts to code written in the LUA(1) language.  This way simplicity
+can be balanced with powerfulness.  See the online manual for details on the
+CONFIG-FILE <ulink url="http://code.google.com/p/lsyncd/wiki/Lsyncd20Manual">http://code.google.com/p/lsyncd/wiki/Lsyncd20Manual</ulink></simpara>
+
+<simpara>Note that under normal configuration Lsyncd will delete pre-existing files in
+the target directories that are not present in the respective source directory.</simpara>
 
 </refsect1>
 <refsect1 id="_options">
@@ -96,6 +99,16 @@ details on the CONFIG-FILE <ulink url="http://code.google.com/p/lsyncd/wiki/Lsyn
 <listitem>
 <simpara>
         Show a help message.
+</simpara>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+<emphasis role="strong">-insist</emphasis>
+</term>
+<listitem>
+<simpara>
+        Continues startup even if a startup rsync cannot connect.
 </simpara>
 </listitem>
 </varlistentry>
@@ -197,17 +210,17 @@ details on the CONFIG-FILE <ulink url="http://code.google.com/p/lsyncd/wiki/Lsyn
 </refsect1>
 <refsect1 id="_version">
 <title>VERSION</title>
-<simpara>This man page is for lsyncd(1) version 2.0.0</simpara>
+<simpara>This man page is for lsyncd(1) version 2.0.5</simpara>
 
 </refsect1>
 <refsect1 id="_author">
 <title>AUTHOR</title>
-<simpara>Axel Kittenberger, &lt;<ulink url="mailto:axkibe@gmail.com">axkibe@gmail.com</ulink>&gt; 2010</simpara>
+<simpara>Axel Kittenberger, &lt;<ulink url="mailto:axkibe@gmail.com">axkibe@gmail.com</ulink>&gt; 2010-2011</simpara>
 
 </refsect1>
 <refsect1 id="_copying">
 <title>COPYING</title>
-<simpara>Copyright (C) 2010 Axel Kittenberger. Free use of this software is granted
+<simpara>Copyright (C) 2010-2011 Axel Kittenberger. Free use of this software is granted
 under the terms of the GNU General Public License (GPL) version 2, or any later
 version. Free redistrubition of this Documentation (/doc directory) is granted
 under the terms of the Creative Commons 3.0 Attribution License (CC-3.0-BY).</simpara>
