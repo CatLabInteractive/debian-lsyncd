@@ -22,7 +22,7 @@ if lsyncd_version then
 		"You cannot use the lsyncd runner as configuration file!")
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0.4"
+lsyncd_version = "2.0.5"
 
 -----
 -- Hides the core interface from user scripts
@@ -38,6 +38,7 @@ _l = nil
 log       = lsyncd.log
 terminate = lsyncd.terminate
 now       = lsyncd.now
+readdir   = lsyncd.readdir
 -- just to safe from userscripts changing this.
 local log       = log
 local terminate = terminate
@@ -47,6 +48,10 @@ local now       = now
 -- Predeclarations
 --
 local Monitors
+
+-----
+-- Global: total number of processess running
+local processCount = 0
 
 --============================================================================
 -- Lsyncd Prototypes 
@@ -162,9 +167,9 @@ end)()
 --  
 --
 Queue = (function()
-	
 	-----
 	-- Creates a new queue.
+	--
 	local function new() 
 		return { first = 1, last = 0, size = 0};
 	end
@@ -172,6 +177,7 @@ Queue = (function()
 	-----
 	-- Pushes a value on the queue.
 	-- Returns the last value
+	--
 	local function push(list, value)
 		if not value then 
 			error("Queue pushing nil value", 2)
@@ -216,6 +222,7 @@ Queue = (function()
 
 	-----
 	-- Stateless queue iterator.
+	--
 	local function iter(list, pos)
 		pos = pos + 1
 		while list[pos] == nil and pos <= list.last do
@@ -240,16 +247,18 @@ Queue = (function()
 		return pos, list[pos]
 	end
 
-	----
+	-----
 	-- Iteraters through the queue
 	-- returning all non-nil pos-value entries
+	--
 	local function qpairs(list)
 		return iter, list, list.first - 1
 	end
 	
-	----
+	-----
 	-- Iteraters backwards through the queue
 	-- returning all non-nil pos-value entries
+	--
 	local function qpairsReverse(list)
 		return iterReverse, list, list.last + 1
 	end
@@ -261,7 +270,7 @@ Queue = (function()
 			qpairsReverse = qpairsReverse}
 end)()
 
-----
+-----
 -- Locks globals,
 -- no more globals can be created
 --
@@ -405,14 +414,14 @@ local Combiner = (function()
 	-- combines two delays
 	--
 	local function combine(d1, d2)
-		if d1.etype == "Blanket" then
-			-- everything is blocked by a blanket delay.
+		if d1.etype == "Init" or d1.etype == "Blanket" then
+			-- everything is blocked by init or blanket delays.
 			if d2.path2 then
 				log("Delay", d2.etype,":",d2.path,"->",d2.path2, "blocked by",
-					"Blanket event")
+					d1.etype," event")
 			else
 				log("Delay", d2.etype,":",d2.path, "blocked by",
-					"Blanket event")
+					d1.etype," event")
 			end
 			return "stack"
 		end
@@ -984,12 +993,6 @@ local InletFactory = (function()
 	}
 end)()
 
------
--- Little dirty workaround to retrieve the Inlet from events in Inlet
-getInlet = function()
-	return Inlet
-end
-
 
 -----
 -- A set of exclude patterns
@@ -1330,9 +1333,9 @@ local Sync = (function()
 		end
 		-- new delay
 		local nd = Delay.new(etype, alarm, path, path2)
-		if nd.etype == "Blanket" then
+		if nd.etype == "Init" or nd.etype == "Blanket" then
 			-- always stack blanket events on the last event
-			log("Delay", "Stacking blanket event.")
+			log("Delay", "Stacking ",nd.etype," event.")
 			if self.delays.size > 0 then
 				stack(self.delays[self.delays.last], nd)
 			end
@@ -1451,6 +1454,11 @@ local Sync = (function()
 			return
 		end
 		for _, d in Queue.qpairs(self.delays) do
+			-- if reached the global limit return
+			if settings.maxProcesses and processCount >= settings.maxProcesses then
+				log("Alarm", "at global process limit.")
+				return
+			end
 			if self.delays.size < self.config.maxDelays then
 				-- time constrains are only concerned if not maxed 
 				-- the delay FIFO already.
@@ -1461,7 +1469,11 @@ local Sync = (function()
 			end
 			if d.status == "wait" then
 				-- found a waiting delay
-				self.config.action(self.inlet)
+				if d.etype ~= "Init" then
+					self.config.action(self.inlet)
+				else
+					self.config.init(InletFactory.d2e(self, d))
+				end
 				if self.processes:size() >= self.config.maxProcesses then
 					-- no further processes
 					return
@@ -1491,11 +1503,21 @@ local Sync = (function()
 	end
 
 	------
-	-- adds and returns a blanket delay thats blocks all 
-	-- (used in startup)
+	-- Adds and returns a blanket delay thats blocks all.
+	-- Used as custom marker.
 	--
 	local function addBlanketDelay(self)
 		local newd = Delay.new("Blanket", true, "")
+		newd.dpos = Queue.push(self.delays, newd)
+		return newd 
+	end
+	
+	------
+	-- Adds and returns a blanket delay thats blocks all.
+	-- Used as startup marker to call init asap.
+	--
+	local function addInitDelay(self)
+		local newd = Delay.new("Init", true, "")
 		newd.dpos = Queue.push(self.delays, newd)
 		return newd 
 	end
@@ -1530,9 +1552,6 @@ local Sync = (function()
 	end
 
 	-----
-	-- b
-
-	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
@@ -1547,6 +1566,7 @@ local Sync = (function()
 			-- functions
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
+			addInitDelay    = addInitDelay,
 			collect         = collect,
 			concerns        = concerns,
 			delay           = delay,
@@ -1603,13 +1623,40 @@ local Syncs = (function()
 	-- the list of all syncs
 	--
 	local list = Array.new()
-	
+
 	-----
-	-- inheritly copies all non integer keys from
-	-- @cd copy destination
-	-- to
-	-- @cs copy source
-	-- all integer keys are treated as new copy sources
+	-- The round robin pointer. In case of global limited maxProcesses 
+	-- gives every sync equal chances to spawn the next process.
+	--
+	local round = 1
+
+	-----
+	-- The cycle() sheduler goes into the next round of roundrobin.
+	local function nextRound() 
+		round = round + 1;
+		if round > #list then
+			round = 1
+		end
+		return round
+	end
+
+	-----
+	-- Returns the round
+	local function getRound()
+		return round
+	end
+
+	-----
+	-- Returns sync at listpos i
+	local function get(i)
+		return list[i];
+	end
+
+	-----
+	-- Inheritly copies all non integer keys from
+	-- copy source (cs) to copy destination (cd).
+	--
+	-- all entries with integer keys are treated as new sources to copy 
 	--
 	local function inherit(cd, cs)
 		-- first copies from source all 
@@ -1628,7 +1675,7 @@ local Syncs = (function()
 	end
 	
 	-----
-	-- Adds a new directory to observe.
+	-- Adds a new sync (directory-tree to observe).
 	--
 	local function add(config)
 		-- Creates a new config table and inherit all keys/values
@@ -1711,21 +1758,21 @@ local Syncs = (function()
 	end
 
 	-----
-	-- allows to walk through all syncs
+	-- Allows a for-loop to walk through all syncs.
 	--
 	local function iwalk()
 		return ipairs(list)
 	end
 
 	-----
-	-- returns the number of syncs
+	-- Returns the number of syncs.
 	--
 	local size = function()
 		return #list
 	end
 
 	------
-	-- tests if any sync is interested in path
+	-- Tests if any sync is interested in a path.
 	--
 	local function concerns(path)
 		for _, s in ipairs(list) do
@@ -1737,10 +1784,15 @@ local Syncs = (function()
 	end
 
 	-- public interface
-	return {add = add, 
-	        concerns = concerns,
-	        iwalk = iwalk, 
-			size = size}
+	return {
+		add = add,
+		get = get,
+		getRound = getRound,
+		concerns = concerns,
+		iwalk = iwalk, 
+		nextRound = nextRound,
+		size = size
+	}
 end)()
 
 
@@ -1824,7 +1876,8 @@ local Inotify = (function()
 		end
 
 		-- lets the core registers watch with the kernel
-		local wd = lsyncd.inotify.addwatch(path);
+		local wd = lsyncd.inotify.addwatch(path, 
+			(settings and settings.inotifyMode) or "");
 		if wd < 0 then
 			log("Inotify","Unable to add watch '",path,"'")
 			return
@@ -2338,6 +2391,7 @@ end)()
 --
 --
 local StatusFile = (function() 
+
 	-----
 	-- Timestamp when the status file has been written.
 	local lastWritten = false
@@ -2402,13 +2456,13 @@ local StatusFile = (function()
 end)()
 
 ------
--- Lets the userscript make its own alarms
+-- Lets the userscript make its own alarms.
 --
 local UserAlarms = (function() 
 	local alarms = {}
 
 	-----
-	-- Calls the user function at timestamp
+	-- Calls the user function at timestamp.
 	--
 	local function alarm(timestamp, func, extra)
 		local idx 
@@ -2429,7 +2483,7 @@ local UserAlarms = (function()
 	end
 
 	----
-	-- Retrieves the nearest alarm
+	-- Retrieves the nearest alarm.
 	--
 	local function getAlarm()
 		if #alarms == 0 then
@@ -2440,7 +2494,7 @@ local UserAlarms = (function()
 	end
 
 	-----
-	-- Calls user alarms
+	-- Calls user alarms.
 	--
 	local function invoke(timestamp)
 		while #alarms > 0 and alarms[1].timestamp <= timestamp do
@@ -2497,6 +2551,11 @@ end
 -- zombie process was collected by core.
 --
 function runner.collectProcess(pid, exitcode) 
+	processCount = processCount - 1
+	if processCount < 0 then
+		error("negative number of processes!")
+	end
+
 	for _, s in Syncs.iwalk() do
 		if s:collect(pid, exitcode) then
 			return
@@ -2504,12 +2563,12 @@ function runner.collectProcess(pid, exitcode)
 	end
 end
 
-----
+-----
 -- Called from core everytime a masterloop cycle runs through.
 -- This happens in case of 
 --   * an expired alarm.
 --   * a returned child process.
---   * received inotify events.
+--   * received filesystem events.
 --   * received a HUP or TERM signal.
 --
 -- @param timestamp   the current kernel time (in jiffies)
@@ -2518,23 +2577,30 @@ function runner.cycle(timestamp)
 	-- goes through all syncs and spawns more actions
 	-- if possible
 	if lsyncdStatus == "fade" then
-		local np = 0
-		for _, s in Syncs.iwalk() do
-			np = np + s.processes:size()
-		end
-		if np > 0 then
-			log("Normal", "waiting for ",np," more child processes.")
+		if processCount > 0 then
+			log("Normal", "waiting for ",processCount," more child processes.")
 			return true
 		else
 			return false
 		end
 	end
 	if lsyncdStatus ~= "run" then
-		error("cycle called in not run?!")
+		error("runner.cycle() called while not running!")
 	end
 
-	for _, s in Syncs.iwalk() do
-		s:invokeActions(timestamp)
+	--- only let Syncs invoke actions if not on global limit
+	if not settings.maxProcesses or processCount < settings.maxProcesses then
+		local start = Syncs.getRound()
+		local ir = start
+		repeat
+			local s = Syncs.get(ir)
+			s:invokeActions(timestamp)
+			ir = ir + 1
+			if ir > Syncs.size() then
+				ir = 1
+			end
+		until ir == start
+		Syncs.nextRound()
 	end
 
 	UserAlarms.invoke(timestamp)
@@ -2570,6 +2636,7 @@ USAGE:
 OPTIONS:
   -delay SECS         Overrides default delay times
   -help               Shows this
+  -insist             Continues startup even if it cannot connect
   -log    all         Logs everything (debug)
   -log    scarce      Logs errors only
   -log    [Category]  Turns on logging for a debug category
@@ -2620,6 +2687,10 @@ function runner.configure(args, monitors)
 			{1, function(secs)
 				clSettings.delay = secs
 			end},
+		insist   =
+			{0, function()
+				clSettings.insist = true
+			end},
 		log      = 
 			{1, nil},
 		logfile   = 
@@ -2641,7 +2712,7 @@ function runner.configure(args, monitors)
 			end},
 		nodaemon = 
 			{0, function() 
-				clSettings.nodaemon=true 
+				clSettings.nodaemon = true 
 			end},
 		pidfile   = 
 			{1, function(file)
@@ -2833,9 +2904,10 @@ function runner.initialize()
 			error("sync "..s.config.name..
 				" has no known event monitor interface.")
 		end
-
+		-- if the sync has an init function, stacks an init delay
+		-- that will cause the init function to be called.
 		if s.config.init then
-			s.config.init(s.inlet)
+			s:addInitDelay()
 		end
 	end
 end
@@ -2867,15 +2939,21 @@ function runner.getAlarm()
 	end
 
 	-- checks all syncs for their earliest alarm
-	for _, s in Syncs.iwalk() do
-		checkAlarm(s:getAlarm())
+	-- but only if the global process limit is not yet reached.
+	if not settings.maxProcesses or processCount < settings.maxProcesses then
+		for _, s in Syncs.iwalk() do
+			checkAlarm(s:getAlarm())
+		end
+	else
+		log("Alarm", "at global process limit.")
 	end
+
 	-- checks if a statusfile write has been delayed
 	checkAlarm(StatusFile.getAlarm())
 	-- checks for an userAlarm
 	checkAlarm(UserAlarms.getAlarm())
 
-	log("Debug","getAlarm returns: ",alarm)
+	log("Alarm","runner.getAlarm returns: ",alarm)
 	return alarm
 end
 
@@ -2904,7 +2982,7 @@ function runner.collector(pid, exitcode)
 	return 0
 end
 
-----
+-----
 -- Called by core when an overflow happened.
 --
 function runner.overflow()
@@ -2912,7 +2990,7 @@ function runner.overflow()
 	lsyncdStatus = "fade"
 end
 
-----
+-----
 -- Called by core on a hup signal.
 --
 function runner.hup()
@@ -2920,7 +2998,7 @@ function runner.hup()
 	lsyncdStatus = "fade"
 end
 
-----
+-----
 -- Called by core on a term signal.
 --
 function runner.term()
@@ -2984,6 +3062,10 @@ function spawn(agent, binary, ...)
 	local pid = lsyncd.exec(binary, ...)
 
 	if pid and pid > 0 then
+		processCount = processCount + 1
+		if settings.maxProcesses and processCount > settings.maxProcesses then
+			error("Spawned too much processes!")
+		end
 		local sync = InletFactory.getSync(agent)
 		-- delay or list
 		if dol.status then
@@ -3053,6 +3135,7 @@ end
 -- Exitcodes to retry on network failures of rsync.
 --
 local rsync_exitcodes = {
+	[  0] = "ok",
 	[  1] = "die",
 	[  2] = "die",
 	[  3] = "again",
@@ -3061,11 +3144,13 @@ local rsync_exitcodes = {
 	[  6] = "again",
 	[ 10] = "again", 
 	[ 11] = "again",
---	[ 12] = "again", -- dont, consistent failure, if e.g. target dir not there.
+	[ 12] = "again", 
 	[ 14] = "again",
 	[ 20] = "again",
 	[ 21] = "again",
 	[ 22] = "again",
+	[ 23] = "ok", -- partial transfers are ok, since Lsyncd has registered the event that 
+	[ 24] = "ok", -- caused the transfer to be partial and will recall rsync.
 	[ 25] = "die",
 	[ 30] = "again",
 	[ 35] = "again",
@@ -3076,6 +3161,7 @@ local rsync_exitcodes = {
 -- Exitcodes to retry on network failures of rsync.
 --
 local ssh_exitcodes = {
+	[0]   = "ok",
 	[255] = "again",
 }
 
@@ -3090,7 +3176,7 @@ local default_rsync = {
 		-- gets all events ready for syncing
 		local elist = inlet.getEvents(
 			function(event) 
-				return event.etype ~= "Blanket"
+				return event.etype ~= "Init" and event.etype ~= "Blanket"
 			end
 		)
 	
@@ -3154,9 +3240,9 @@ local default_rsync = {
 			"Calling rsync with filter-list of new/modified files/dirs\n", 
 			filterS)
 		local config = inlet.getConfig() 
-		spawn(elist, "/usr/bin/rsync", 
+		spawn(elist, config.rsyncBinary, 
 			"<", filter0,
-			config.rsyncOps,
+			config.rsyncOpts,
 			"-r",
 			"--delete",
 			"--force",
@@ -3170,33 +3256,27 @@ local default_rsync = {
 	-----
 	-- Spawns the recursive startup sync
 	-- 
-	init = function(inlet)
-		local config = inlet.getConfig()
-		local event = inlet.createBlanketEvent()
-		event.isStartup = true -- marker for user scripts 
-		
-		if string.sub(config.target, -1) ~= "/" then
-			config.target = config.target .. "/"
-		end
-
+	init = function(event)
+		local config = event.config;
+		local inlet = event.inlet;
 		local excludes = inlet.getExcludes();
 		if #excludes == 0 then
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.target)
-			spawn(event, "/usr/bin/rsync", 
+			spawn(event, config.rsyncBinary, 
 				"--delete",
-				config.rsyncOps, "-r", 
+				config.rsyncOpts, "-r", 
 				config.source, 
 				config.target)
 		else
 			local exS = table.concat(excludes, "\n")
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.target," excluding\n", exS)
-			spawn(event, "/usr/bin/rsync",  
+			spawn(event, config.rsyncBinary,  
 				"<", exS,
 				"--exclude-from=-",
 				"--delete",
-				config.rsyncOps, "-r", 
+				config.rsyncOpts, "-r", 
 				config.source, 
 				config.target)
 		end
@@ -3209,12 +3289,29 @@ local default_rsync = {
 		if not config.target then
 			error("default.rsync needs 'target' configured", 4)
 		end
+
+		if config.rsyncOps then
+			if config.rsyncOpts then
+				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
+			end
+			config.rsyncOpts = config.rsyncOps
+		end
+
+		-- appends a / to target if not present
+		if string.sub(config.target, -1) ~= "/" then
+			config.target = config.target .. "/"
+		end
 	end,
+	
+	-----
+	-- The rsync binary called.
+	--
+	rsyncBinary = "/usr/bin/rsync",
 
 	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOps = "-lts",
+	rsyncOpts = "-lts",
 
 	-----
 	-- exit codes for rsync.
@@ -3291,7 +3388,8 @@ local default_rsyncssh = {
 			function(e) 
 				return e.etype ~= "Move" and 
 				       e.etype ~= "Delete" and
-					   e.etype ~= "Blanket"
+					   e.etype ~= "Init" and
+					   e.etype ~= "Blanket" 
 			end)
 		local paths = elist.getPaths()
 		
@@ -3305,79 +3403,89 @@ local default_rsyncssh = {
 		local zPaths = table.concat(paths, "\000")
 		log("Normal", "Rsyncing list\n", sPaths)
 		spawn(
-			elist, "/usr/bin/rsync", 
+			elist, config.rsyncBinary, 
 			"<", zPaths, 
-			config.rsyncOps,
+			config.rsyncOpts,
 			"--from0",
 			"--files-from=-",
 			config.source, 
 			config.host .. ":" .. config.targetdir
 		)
 	end,
-	
+		
 	-----
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
-		if not agent.isList and agent.etype == "Blanket" then
-			if exitcode == 0 then
+		if not agent.isList and agent.etype == "Init" then
+			local rc = rsync_exitcodes[exitcode]
+			if rc == "ok" then
 				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif rsync_exitcodes[exitcode] == "again" then
-				log("Normal", 
-					"Retrying startup of '",agent.source,"'.")
-				return "again"
-			else
+			elseif rc == "again" then
+				if settings.insist then
+					log("Normal", "Retrying startup of '",agent.source,"'.")
+				else
+					log("Error", 
+					"Temporary or permanent failure on startup. Terminating since not insisting.");
+					terminate(-1) -- ERRNO
+				end
+			elseif rc == "die" then
 				log("Error", "Failure on startup of '",agent.source,"'.")
-				terminate(-1) -- ERRNO
+			else
+				log("Error", "Unknown exitcode '",exticode,"' with a list")
+				rc = "die"
 			end
+			return rc
 		end
 
 		if agent.isList then
 			local rc = rsync_exitcodes[exitcode] 
-			if rc == "die" then
-				return rc
-			end
-			if rc == "again" then
-				log("Normal", "Retrying a list on exitcode = ",exitcode)
-			else
+			if rc == "ok" then
 				log("Normal", "Finished a list = ",exitcode)
+			elseif rc == "again" then
+				log("Normal", "Retrying a list on exitcode = ",exitcode)
+			elseif rc == "die" then
+				log("Error", "Failure on list on exitcode = ",exitcode)
+			else 
+				log("Error", "Unknown exitcode on list = ",exitcode)
+				rc = "die"
 			end
 			return rc
 		else
 			local rc = ssh_exitcodes[exitcode] 
-			if rc == "die" then
-				return rc
-			end
-			if rc == "again" then
-				log("Normal", "Retrying ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-			else
+			if rc == "ok" then
 				log("Normal", "Finished ",agent.etype,
 					" on ",agent.sourcePath," = ",exitcode)
+			elseif rc == "again" then
+				log("Normal", "Retrying ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			elseif rc == "die" then
+				log("Normal", "Failure ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			else
+				log("Error", "Unknown exitcode ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+				rc = "die"
 			end
+			return rc
 		end
 	end,
 
 	-----
 	-- Spawns the recursive startup sync
 	-- 
-	init = function(inlet)
-		local config = inlet.getConfig()
-		local event = inlet.createBlanketEvent()
-		event.isStartup = true -- marker for user scripts 
-		if string.sub(config.targetdir, -1) ~= "/" then
-			config.targetdir = config.targetdir .. "/"
-		end
-
+	init = function(event)
+		local config = event.config
+		local inlet = event.inlet
 		local excludes = inlet.getExcludes();
 		if #excludes == 0 then
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir)
 			spawn(
-				event, "/usr/bin/rsync", 
+				event, config.rsyncBinary, 
 				"--delete",
 				"-r", 
-				config.rsyncOps, 
+				config.rsyncOpts, 
 				config.source, 
 				config.host .. ":" .. config.targetdir
 			)
@@ -3386,12 +3494,12 @@ local default_rsyncssh = {
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
 			spawn(
-				event, "/usr/bin/rsync",  
+				event, config.rsyncBinary,  
 				"<", exS,
 				"--exclude-from=-",
 				"--delete",
 				"-r",
-				config.rsyncOps, 
+				config.rsyncOpts, 
 				config.source, 
 				config.host .. ":" .. config.targetdir
 			)
@@ -3402,18 +3510,34 @@ local default_rsyncssh = {
 	-- Checks the configuration.
 	--
 	prepare = function(config)
+		if config.rsyncOps then
+			if config.rsyncOpts then
+				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
+			end
+			config.rsyncOpts = config.rsyncOps
+		end
 		if not config.host then
 			error("default.rsyncssh needs 'host' configured", 4)
 		end
 		if not config.targetdir then
 			error("default.rsyncssh needs 'targetdir' configured", 4)
 		end
+
+		-- appends a slash to the targetdir if missing
+		if string.sub(config.targetdir, -1) ~= "/" then
+			config.targetdir = config.targetdir .. "/"
+		end
 	end,
+	
+	-----
+	-- The rsync binary called.
+	--
+	rsyncBinary = "/usr/bin/rsync",
 
 	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOps = "-lts",
+	rsyncOpts = "-lts",
 
 	-----
 	-- allow processes
@@ -3436,7 +3560,7 @@ local default_rsyncssh = {
 	-- available this is simpler than to build filters for rsync for this.
 	-- Default uses '0' as limiter, you might override this for old systems.
 	--
-	xargs = {delimiter = '\000', binary = "xargs", xparams = {"-0", "rm -rf"}}
+	xargs = {binary = "/usr/bin/xargs", delimiter = '\000', xparams = {"-0", "rm -rf"}}
 }
 
 -----
@@ -3501,26 +3625,31 @@ local default_direct = {
 	--
 	collect = function(agent, exitcode)
 		local config = agent.config
-
-		if not agent.isList and agent.etype == "Blanket" then
-			if exitcode == 0 then
+		
+		if not agent.isList and agent.etype == "Init" then
+			local rc = rsync_exitcodes[exitcode]
+			if rc == "ok" then
 				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif rsync_exitcodes and 
-			       rsync_exitcodes[exitcode] == "again" 
-			then
-				log("Normal", 
-					"Retrying startup of '",agent.source,"'.")
-				return "again"
-			else
+			elseif rc == "again" then
+				if settings.insist then
+					log("Normal", "Retrying startup of '",agent.source,"'.")
+				else
+					log("Error", 
+					"Temporary or permanent failure on startup. Terminating since not insisting.");
+					terminate(-1) -- ERRNO
+				end
+			elseif rc == "die" then
 				log("Error", "Failure on startup of '",agent.source,"'.")
-				terminate(-1) -- ERRNO
+			else
+				log("Error", "Unknown exitcode '",exticode,"' with a list")
+				rc = "die"
 			end
-			return
+			return rc
 		end
 
-		-- everything else just is as is, 
+		-- everything else is just as it is, 
 		-- there is no network to retry something.
-		return nil
+		return 
 	end,
 
 	-----
@@ -3549,9 +3678,14 @@ local default_direct = {
 	onMove = true,
 	
 	-----
+	-- The rsync binary called.
+	--
+	rsyncBinary = "/usr/bin/rsync",
+	
+	-----
 	-- For startup sync
 	--
-	rsyncOps = "-lts",
+	rsyncOpts = "-lts",
 
 	-----
 	-- On many system multiple disk operations just rather slow down
@@ -3589,45 +3723,61 @@ default = {
 
 	
 	-----
+	-- Default collector.
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
 		local config = agent.config
-
-		if not agent.isList and agent.etype == "Blanket" then
-			if exitcode == 0 then
-				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif config.exitcodes and 
-			       config.exitcodes[exitcode] == "again" 
-			then
-				log("Normal", 
-					"Retrying startup of '",agent.source,"'.")
-				return "again"
-			else
-				log("Error", "Failure on startup of '",agent.source,"'.")
-				terminate(-1) -- ERRNO
-			end
-			return
+		local rc
+		if config.exitcodes then
+			rc = config.exitcodes[exitcode]
+		elseif exitcode == 0 then
+			rc = "ok"
+		else
+			rc = "die"
 		end
 
-		local rc = config.exitcodes and config.exitcodes[exitcode] 
-		if rc == "die" then
-			return rc
+		if not agent.isList and agent.etype == "Init" then
+			if rc == "ok" then
+				log("Normal", "Startup of '",agent.source,"' finished.")
+				return "ok"
+			elseif rc == "again" then
+				log("Normal", "Retrying startup of '",agent.source,"'.")
+				return "again"
+			elseif rc == "die" then
+				log("Error", "Failure on startup of '",agent.source,"'.")
+				terminate(-1) -- ERRNO
+			else
+				log("Error", "Unknown exitcode '",exitcode,"' on startup of '",agent.source,"'.")
+				return "die"
+			end
 		end
 
 		if agent.isList then
-			if rc == "again" then
-				log("Normal", "Retrying a list on exitcode = ",exitcode)
-			else
+			if rc == "ok" then
 				log("Normal", "Finished a list = ",exitcode)
+			elseif rc == "again" then
+				log("Normal", "Retrying a list on exitcode = ",exitcode)
+			elseif rc == "die" then
+				log("Error", "Failure with a list on exitcode = ",exitcode)
+			else 
+				log("Error", "Unknown exitcode '",exitcode,"' with a list")
+				rc = "die"
 			end
 		else
-			if rc == "again" then
+			if rc == "ok" then
 				log("Normal", "Retrying ",agent.etype,
 					" on ",agent.sourcePath," = ",exitcode)
-			else
+			elseif rc == "again" then
 				log("Normal", "Finished ",agent.etype,
 					" on ",agent.sourcePath," = ",exitcode)
+			elseif rc == "die" then
+				log("Error", "Failure with ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			else
+				log("Normal", "Unknown exitcode '",exitcode,"' with ", agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+				rc = "die"
 			end
 		end
 		return rc
@@ -3636,21 +3786,19 @@ default = {
 	-----
 	-- called on (re)initalizing of Lsyncd.
 	--
-	init = function(inlet)
-		local config = inlet.getConfig()
+	init = function(event)
+		local config = event.config
+		local inlet = event.inlet
 		-- user functions
-
 		-- calls a startup if given by user script.
 		if type(config.onStartup) == "function" then
-			local event = inlet.createBlanketEvent()
-			event.isStartup = true -- marker for user scripts 
 			local startup = config.onStartup(event)
-			if event.status == "wait" then
-				-- user script did not spawn anything
-				-- thus the blanket event is deleted again.
-				inlet.discardEvent(event)
-			end
 			-- TODO honor some return codes of startup like "warmstart".
+		end
+		if event.status == "wait" then
+			-- user script did not spawn anything
+			-- thus the blanket event is deleted again.
+			inlet.discardEvent(event)
 		end
 	end,
 

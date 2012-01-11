@@ -34,6 +34,9 @@
 #undef LSYNCD_DEFAULT_RUNNER_FILE
 
 /* "descr" */
+#undef LSYNCD_WITH_FSEVENTS
+
+/* "descr" */
 #undef LSYNCD_WITH_INOTIFY
 
 /* Name of package */

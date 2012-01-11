@@ -16,6 +16,7 @@
 
 #define SYSLOG_NAMES 1
 
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
@@ -26,9 +27,11 @@
 #include <limits.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <syslog.h>
 #include <math.h>
 #include <time.h>
@@ -44,8 +47,8 @@
  * The Lua part of lsyncd if compiled into the binary.
  */
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
-	extern char _binary_luac_out_start;
-	extern char _binary_luac_out_end; 
+	extern const char luac_out[];
+	extern size_t luac_size;
 #endif
 
 /**
@@ -1836,8 +1839,7 @@ main1(int argc, char *argv[])
 	} else {
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
 		/* loads the runner from binary */
-		if (luaL_loadbuffer(L, &_binary_luac_out_start, 
-				&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua"))
+		if (luaL_loadbuffer(L, luac_out, luac_size, "lsyncd.lua"))
 		{
 			printlogf(L, "Error", 
 				"error loading precompiled lsyncd.lua runner: %s", 
@@ -2046,7 +2048,6 @@ main1(int argc, char *argv[])
 	lua_close(L);
 	return 0;
 }
-
 
 /**
  * Main

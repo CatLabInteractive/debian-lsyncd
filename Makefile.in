@@ -33,8 +33,9 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 bin_PROGRAMS = lsyncd$(EXEEXT)
 @INOTIFY_TRUE@am__append_1 = inotify.c
+@FSEVENTS_TRUE@am__append_2 = fsevents.c
 # or compiles it into the binary
-@RUNNER_FALSE@am__append_2 = luac.o
+@RUNNER_FALSE@am__append_3 = luac.o
 subdir = .
 DIST_COMMON = $(am__configure_deps) $(dist_example_DATA) \
 	$(dist_man1_MANS) $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
@@ -53,12 +54,14 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
 	"$(DESTDIR)$(exampledir)" "$(DESTDIR)$(runnerdir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am__lsyncd_SOURCES_DIST = lsyncd.h lsyncd.c lsyncd.lua inotify.c
+am__lsyncd_SOURCES_DIST = lsyncd.h lsyncd.c lsyncd.lua inotify.c \
+	fsevents.c
 @INOTIFY_TRUE@am__objects_1 = inotify.$(OBJEXT)
-am_lsyncd_OBJECTS = lsyncd.$(OBJEXT) $(am__objects_1)
+@FSEVENTS_TRUE@am__objects_2 = fsevents.$(OBJEXT)
+am_lsyncd_OBJECTS = lsyncd.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lsyncd_OBJECTS = $(am_lsyncd_OBJECTS)
 am__DEPENDENCIES_1 =
-lsyncd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__append_2)
+lsyncd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__append_3)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -182,13 +185,10 @@ target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
-lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua $(am__append_1)
-
-#if FSEVENTS
-#lsyncd_SOURCES += fsevents.c
-#endif
-lsyncd_LDADD = $(LUA_LIBS) $(am__append_2)
-exampledir = $(datarootdir)/doc/@PACKAGE@
+lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua $(am__append_1) \
+	$(am__append_2)
+lsyncd_LDADD = $(LUA_LIBS) $(am__append_3)
+exampledir = $(docdir)/
 dist_example_DATA = \
 	examples/lbash.lua \
 	examples/lecho.lua \
@@ -204,10 +204,12 @@ TESTS = \
 	tests/churn-direct.lua \
 	tests/exclude-rsync.lua \
 	tests/exclude-rsyncssh.lua \
+	tests/schedule.lua \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
-EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml
+EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml inotify.c fsevents.c bin2carray.lua
+CLEANFILES = luac.out luac.c
 
 # installs the runner script
 @RUNNER_TRUE@runnerdir = $(RUNNER_DIR)
@@ -300,6 +302,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fsevents.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inotify.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lsyncd.Po@am__quote@
 
@@ -672,6 +675,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -770,18 +774,10 @@ doc/lsyncd.1: doc/lsyncd.1.xml
 doc/lsyncd.1.xml: doc/lsyncd.1.txt
 	asciidoc -o $@ -b docbook -d manpage $<
 
-@RUNNER_FALSE@objarch: | lsyncd.o
-@RUNNER_FALSE@	objdump -f lsyncd.o | grep architecture | \
-@RUNNER_FALSE@		sed -e "s/,.*$$//" -e "s/[^ ]* \(.*\)/\1/" > $@ || rm $@
+@RUNNER_FALSE@luac.o: luac.c
 
-@RUNNER_FALSE@objtarget: | lsyncd.o
-@RUNNER_FALSE@	objdump -f lsyncd.o | grep "file format" | \
-@RUNNER_FALSE@		sed -e "s/.* \(.*\)/\1/" > $@ || rm $@
-
-@RUNNER_FALSE@luac.o: luac.out objarch objtarget
-@RUNNER_FALSE@	objcopy --input-target=binary \
-@RUNNER_FALSE@		--output-target=`cat objtarget` \
-@RUNNER_FALSE@		--binary-architecture=`cat objarch` $< $@
+@RUNNER_FALSE@luac.c: luac.out bin2carray.lua
+@RUNNER_FALSE@	lua ./bin2carray.lua luac.out luac luac.c
 
 @RUNNER_FALSE@luac.out: lsyncd.lua
 @RUNNER_FALSE@	luac $<
