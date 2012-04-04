@@ -5,7 +5,7 @@ Description: upstream's Makefile.am defines variables to install the example
  examples so the upstream macros are removed by this patch
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -11,15 +11,6 @@
+@@ -12,15 +12,6 @@
  endif
  
  lsyncd_LDADD = $(LUA_LIBS)

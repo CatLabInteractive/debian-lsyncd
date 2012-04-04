@@ -1,6 +1,7 @@
 lsyncd (2.0.7-1) UNRELEASED; urgency=low
 
   * New upstream version
+  * refresh debian/patches/dont_install_lua_as_docs.patch
 
  -- Jan Dittberner <jandd@debian.org>  Wed, 04 Apr 2012 14:09:34 +0200
 
