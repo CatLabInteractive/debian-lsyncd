@@ -1,54 +1,68 @@
+'\" t
 .\"     Title: lsyncd
-.\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 08/25/2011
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: August 2011
 .\"    Manual: Lsyncd
-.\"    Source: Lsyncd 2.0.5
+.\"    Source: Lsyncd 2.0.6
+.\"  Language: English
 .\"
-.TH "LSYNCD" "1" "08/25/2011" "Lsyncd 2\&.0\&.5" "Lsyncd"
+.TH "LSYNCD" "1" "August 2011" "Lsyncd 2\&.0\&.6" "Lsyncd"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
 lsyncd \- a daemon to continuously synchronize directory trees
 .SH "SYNOPSIS"
 .PP
-config file:
+config file
 .RS 4
-\ \&\fBlsyncd\fR
-[\fIOPTIONS\fR]
+\ \&*lsyncd* [\fIOPTIONS\fR]
 \fICONFIG\-FILE\fR
 .RE
 .PP
-default rsync behaviour:
+default rsync behaviour
 .RS 4
-\ \&\fBlsyncd\fR
-[\fIOPTIONS\fR] \-rsync
+\ \&*lsyncd* [\fIOPTIONS\fR] \-rsync
 \fISOURCEDIR\fR
 \fITARGET\fR
 \&...
 .RE
 .PP
-default rync+ssh bevahiour (moves and deletes through ssh):
+default rync+ssh bevahiour (moves and deletes through ssh)
 .RS 4
-\ \&\fBlsyncd\fR
-[\fIOPTIONS\fR] \-rsyncssh
+\ \&*lsyncd* [\fIOPTIONS\fR] \-rsyncssh
 \fISOURCEDIR\fR
 \fITARGETHOST\fR
 \fITARGETDIR\fR
 \&...
 .RE
 .PP
-default direct bevahiour (local file operations/rsync):
+default direct bevahiour (local file operations/rsync)
 .RS 4
-\ \&\fBlsyncd\fR
-[\fIOPTIONS\fR] \-direct
+\ \&*lsyncd* [\fIOPTIONS\fR] \-direct
 \fISOURCEDIR\fR
 \fITARGETDIR\fR
 \&...
 .RE
-.SH "DESCRTIPTION"
+.SH "DESCRIPTION"
+.sp
 Lsyncd(1) watches local directory trees through an event monitor interface (inotify, fsevents)\&. It aggregates and combines events for a few seconds and then spawns one or more processes to synchronize the changes\&. By default this is rsync(1)\&. Lsyncd is thus a light\-weight asynchronous live mirror solution that is comparatively easy to install not requiring new filesystems or blockdevices and does not hamper local filesystem performance\&.
 .sp
 Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file and directory moves directly on the target instead of retransmitting the move destination over the wire\&.
@@ -56,7 +70,6 @@ Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file and
 Fine\-grained customization can be achieved through the CONFIG\-FILE\&. Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the LUA(1) language\&. This way simplicity can be balanced with powerfulness\&. See the online manual for details on the CONFIG\-FILE http://code\&.google\&.com/p/lsyncd/wiki/Lsyncd20Manual
 .sp
 Note that under normal configuration Lsyncd will delete pre\-existing files in the target directories that are not present in the respective source directory\&.
-.sp
 .SH "OPTIONS"
 .PP
 \fB\-delay\fR \fISECS\fR
@@ -99,7 +112,7 @@ will log all processes as they are spawned\&.
 Lsyncd will not detach from the invoker and log as well to stdout/err\&.
 .RE
 .PP
-\fB\-pifile\fR \fIFILE\fR
+\fB\-pidfile\fR \fIFILE\fR
 .RS 4
 Lsyncd will write its process ID in
 \fIFILE\fR\&.
@@ -108,7 +121,7 @@ Lsyncd will write its process ID in
 \fB\-runner\fR \fIFILE\fR
 .RS 4
 Makes the Lsyncd core load the part of Lsyncd written in Lua from
-\fIFILE\fR
+\fIFILE\fR\&.
 .RE
 .PP
 \fB\-version\fR
@@ -127,20 +140,14 @@ Terminated on a TERM signal(7)
 Failure (syntax, unrecoverable error condition, internal failure)
 .RE
 .SH "SEE ALSO"
+.sp
 Online Manual: http://code\&.google\&.com/p/lsyncd/wiki/Lsyncd2
-.sp
 .SH "VERSION"
+.sp
 This man page is for lsyncd(1) version 2\&.0\&.5
-.sp
 .SH "AUTHOR"
+.sp
 Axel Kittenberger, <axkibe@gmail\&.com> 2010\-2011
-.sp
 .SH "COPYING"
-Copyright (C) 2010\-2011 Axel Kittenberger\&. Free use of this software is granted under the terms of the GNU General Public License (GPL) version 2, or any later version\&. Free redistrubition of this Documentation (/doc directory) is granted under the terms of the Creative Commons 3\&.0 Attribution License (CC\-3\&.0\-BY)\&.
 .sp
-.SH "NOTES"
-.IP " 1." 4
-axkibe@gmail.com
-.RS 4
-\%mailto:axkibe@gmail.com
-.RE
+Copyright (C) 2010\-2011 Axel Kittenberger\&. Free use of this software is granted under the terms of the GNU General Public License (GPL) version 2, or any later version\&. Free redistrubition of this Documentation (/doc directory) is granted under the terms of the Creative Commons 3\&.0 Attribution License (CC\-3\&.0\-BY)\&.
