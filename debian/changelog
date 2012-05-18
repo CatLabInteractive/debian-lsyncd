@@ -1,4 +1,4 @@
-lsyncd (2.0.7-2) UNRELEASED; urgency=low
+lsyncd (2.0.7-2) unstable; urgency=low
 
   * fix lsyncd init script stores the wrong PID in /var/run/lsyncd.pid so
     cannot stop it by adding -pidfile option to debian/lsyncd.init's
@@ -11,7 +11,7 @@ lsyncd (2.0.7-2) UNRELEASED; urgency=low
     - add DPKG_EXPORT_BUILDFLAGS=1 and include
       /usr/share/dpkg/buildflags.mk in debian/rules
 
- -- Jan Dittberner <jandd@debian.org>  Fri, 18 May 2012 11:29:16 +0200
+ -- Jan Dittberner <jandd@debian.org>  Fri, 18 May 2012 12:23:25 +0200
 
 lsyncd (2.0.7-1) unstable; urgency=low
 
