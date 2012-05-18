@@ -6,6 +6,10 @@ lsyncd (2.0.7-2) UNRELEASED; urgency=low
   * debian/rules: fix FTBFS twice in a row
     - override_dh_clean instead of clean
     - remove generated configure
+  * enable hardening build flags
+    - add dpkg-dev (>= 1.16.1~) to Build-Depends
+    - add DPKG_EXPORT_BUILDFLAGS=1 and include
+      /usr/share/dpkg/buildflags.mk in debian/rules
 
  -- Jan Dittberner <jandd@debian.org>  Fri, 18 May 2012 11:29:16 +0200
 
