@@ -16,8 +16,8 @@ DESC="synchronization daemon"
 NAME=lsyncd
 DAEMON=/usr/bin/$NAME
 CONFIG=/etc/lsyncd/lsyncd.conf.lua
-DAEMON_ARGS="-pidfile ${PIDFILE} ${CONFIG}"
 PIDFILE=/var/run/$NAME.pid
+DAEMON_ARGS="-pidfile ${PIDFILE} ${CONFIG}"
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
