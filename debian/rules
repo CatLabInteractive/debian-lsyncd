@@ -7,9 +7,10 @@ override_dh_auto_configure:
 override_dh_auto_test:
 # there is no real test suite only a test target in upstream's Makefile
 
-clean:
+override_dh_clean:
 	rm -f aclocal.m4 Makefile.in
 	rm -rf autom4te.cache
+	dh_clean
 
 %:
 	dh --with autotools_dev $@

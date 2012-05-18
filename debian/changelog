@@ -3,6 +3,8 @@ lsyncd (2.0.7-2) UNRELEASED; urgency=low
   * fix lsyncd init script stores the wrong PID in /var/run/lsyncd.pid so
     cannot stop it by adding -pidfile option to debian/lsyncd.init's
     DAEMON_ARGS (Closes: #673387)
+  * debian/rules: override_dh_clean instead of clean to fix FTBFS twice
+    in a row
 
  -- Jan Dittberner <jandd@debian.org>  Fri, 18 May 2012 11:29:16 +0200
 
