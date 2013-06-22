@@ -1,4 +1,4 @@
-lsyncd (2.1.5-1) UNRELEASED; urgency=low
+lsyncd (2.1.5-1) unstable; urgency=low
 
   * New upstream version (Closes: #707328).
   * refresh debian/patches/dont_install_lua_as_docs.patch
@@ -14,7 +14,7 @@ lsyncd (2.1.5-1) UNRELEASED; urgency=low
       --make-pidfile
     - add --nicelevel to lsyncd invocation
 
- -- Jan Dittberner <jandd@debian.org>  Sat, 22 Jun 2013 22:07:37 +0200
+ -- Jan Dittberner <jandd@debian.org>  Sat, 22 Jun 2013 23:14:59 +0200
 
 lsyncd (2.0.7-3) unstable; urgency=low
 
