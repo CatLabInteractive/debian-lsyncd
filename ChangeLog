@@ -1,4 +1,47 @@
-??-??-????:
+07-07-2013: 2.1.5
+	enhancement: Added rsync options: bwlimit, timeout
+	fix: Specifying ssh port no longer overwrites the last rsync option
+	fix: rsync option password_file is now accepted
+	fix: onAttrib is accepted again
+	fix: -log Exec now prints now fully all arguments
+	fix: configure script lua detection now includes math lib to workaround 
+	     wrongly created "needs COMPAT_ALL" messages.
+	fix: repaired variable replacement for layer 3 scripts
+	fix: config.delay is now checked to a number >= 0
+	change: a2x is no longer checked by configure script.
+			should not be needed when building from tarball
+
+24-11-2012: 2.1.4
+	fix: making ssh custom port changes work with ssh and rsync
+
+23-11-2012: 2.1.3
+	fix: fixed 2 crash conditions due to failure to read 'uSettings'
+
+03-11-2012: 2.1.2
+	fix: added excludeFrom to checkgauge (thx to DavidWittman)
+	fix: fixed rsync option computation
+	enhancement: added password_file file option to rsync
+
+27-10-2012: 2.1.1
+	fix: fix rsync.rsh, rsync.rsync_path, rsync.tmp_dir, rsync._extra parameters
+		 thanks go to Birger Schmidt for this fix.
+
+23-10-2012: 2.1.0
+	fix: fail startup if settings.inist is false and one of the target hosts fails
+	fix: in case of waiting for processes during restart only logs this state now once a minute
+	     rather than filling the log crazy about it
+	enhancement: rsyncOpts has been replaced by rsync = {...} parameter lists
+	enhancement: default.rsyncssh has now a ssh = {...} parameter similar to default.rsync to
+	             add option to ssh calls. Ditto for xargs = {...}
+	enhancement: the default.* implementations have a checkgauge erroring on any unknown
+	             parameters to the sync{} call
+	enhancement: the delete parameter now takes: true, false, 'running' and 'startup'
+	improvement: Dennis Schridde provided various improvements for Lsyncd's autoconf building
+	change: Lsyncd is now Lua 5.2 compatible
+	change: Lsyncd now exits with exitcode 143 on TERM signal
+	change: settings is now be used as call like settings{...} instead of settings = {...}
+
+04-04-2012: 2.0.7
 	fix: closed a memory leak due to not correct configured weak tables
 	fix: default.direct, do not use on OSX unrecognized option -t on modify
 	fix: default.direct, typo leading to compile error
@@ -8,7 +51,7 @@
 	change: removed --with-default-runner since it was broken, and will be replaced by something
 	        more generic in future
 
-16-02-2011: 2.0.6
+16-02-2012: 2.0.6
 	fix: no longer stops syslogging on HUP signals
 	fix: OSX event watcher no longer misses moves into and out of the watch tree
 	fix: not refinding a relative path to the config file in case of HUP.

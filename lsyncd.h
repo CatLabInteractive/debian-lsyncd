@@ -16,6 +16,8 @@
 #define _XOPEN_SOURCE 700
 #define _DARWIN_C_SOURCE 1
 
+#define LUA_COMPAT_ALL
+
 // includes needed for headerfile
 #include "config.h"
 
@@ -25,6 +27,9 @@
 
 #define LUA_USE_APICHECK 1
 #include <lua.h>
+
+#define LSYNCD_LIBNAME "lsyncd"
+#define LSYNCD_INOTIFYLIBNAME "inotify"
 
 /**
  * Lsyncd runtime configuration

@@ -1,4 +1,5 @@
-AUTOMAKE_OPTIONS = foreign
+ACLOCAL_AMFLAGS = -I m4
+
 CFLAGS += -Wall $(LUA_CFLAGS)
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua default-rsync.lua
@@ -35,7 +36,7 @@ EXTRA_DIST = doc/lsyncd.1.txt inotify.c fsevents.c bin2carray.lua \
 	default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
 
 doc/lsyncd.1: doc/lsyncd.1.txt
-	a2x --format=manpage $<
+	$(A2X) --format=manpage $<
 
 CLEANFILES = runner.out defaults.out runner.c defaults.c
 
@@ -46,14 +47,14 @@ runner.o: runner.c
 defaults.o: defaults.c
 
 runner.c: runner.out bin2carray.lua
-	lua ./bin2carray.lua $< runner $@
+	$(LUA) ./bin2carray.lua $< runner $@
 
 defaults.c: defaults.out bin2carray.lua
-	lua ./bin2carray.lua $< defaults $@
+	$(LUA) ./bin2carray.lua $< defaults $@
 
 runner.out: lsyncd.lua
-	luac -o $@ $<
+	$(LUAC) -o $@ $<
 
 defaults.out: default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
-	luac -o $@ $^
+	$(LUAC) -o $@ $^
 
