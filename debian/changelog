@@ -6,7 +6,8 @@ lsyncd (2.1.5-1) UNRELEASED; urgency=low
     - change Homepage to github page
     - switch to canonical Vcs-* URLs
   * debian/rules: add --add-missing to automake invocation to add
-    missing test-drive (Closes: #713793)
+    missing test-driver and remove test-driver in clean target (Closes:
+    #713793)
 
  -- Jan Dittberner <jandd@debian.org>  Sat, 22 Jun 2013 22:07:37 +0200
 
