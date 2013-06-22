@@ -12,6 +12,7 @@ lsyncd (2.1.5-1) UNRELEASED; urgency=low
   * debian/lsyncd.init:
     - don't source /lib/init/vars.sh and don't use $VERBOSE, don't use
       --make-pidfile
+    - add --nicelevel to lsyncd invocation
 
  -- Jan Dittberner <jandd@debian.org>  Sat, 22 Jun 2013 22:07:37 +0200
 

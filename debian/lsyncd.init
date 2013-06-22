@@ -19,6 +19,7 @@ CONFIG=/etc/lsyncd/lsyncd.conf.lua
 PIDFILE=/var/run/$NAME.pid
 DAEMON_ARGS="-pidfile ${PIDFILE} ${CONFIG}"
 SCRIPTNAME=/etc/init.d/$NAME
+NICELEVEL=10
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
@@ -42,7 +43,7 @@ do_start()
         --test > /dev/null \
 		|| return 1
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
-        --exec $DAEMON -- \
+        --nicelevel $NICELEVEL --exec $DAEMON -- \
 		$DAEMON_ARGS \
 		|| return 2
 }
