@@ -5,6 +5,7 @@ lsyncd (2.1.5-1) UNRELEASED; urgency=low
   * debian/control:
     - change Homepage to github page
     - switch to canonical Vcs-* URLs
+    - bump Standards-Version to 3.9.4 (no changes)
   * debian/rules: add --add-missing to automake invocation to add
     missing test-driver and remove test-driver in clean target (Closes:
     #713793)
