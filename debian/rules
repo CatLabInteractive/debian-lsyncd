@@ -4,7 +4,7 @@ DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/buildflags.mk
 
 override_dh_auto_configure:
-	aclocal && automake && autoreconf
+	aclocal && automake --add-missing && autoreconf
 	dh_auto_configure $@
 
 override_dh_auto_test:
