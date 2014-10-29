@@ -1,3 +1,9 @@
+lsyncd (2.0.7-3+deb7u1) wheezy-security; urgency=high
+
+  * add debian/patches/fix-shell-escapes.patch (Closes: #767227)
+
+ -- Jan Dittberner <jandd@debian.org>  Wed, 29 Oct 2014 20:10:37 +0100
+
 lsyncd (2.0.7-3) unstable; urgency=low
 
   * fix breakage introduced when trying to fix #673387, PIDFILE was not

@@ -1,0 +1,31 @@
+Sanitize mv arguments:
+
+1. Fixes crashes on file names containing `, $ or "
+2. Also prevents shell execution of ``, $() … in file names, which can be
+   used to gain remote shell access as lsyncd's (target) user.
+Index: lsyncd-2.0.7/default-rsyncssh.lua
+===================================================================
+--- lsyncd-2.0.7.orig/default-rsyncssh.lua	2012-02-16 08:24:20.000000000 +0100
++++ lsyncd-2.0.7/default-rsyncssh.lua	2014-10-29 13:59:51.165553255 +0100
+@@ -29,14 +29,17 @@
+ 		-- makes move local on host
+ 		-- if fails deletes the source...
+ 		if event.etype == 'Move' then
+-			log('Normal', 'Moving ',event.path,' -> ',event2.path)
++			local path1 = event.path:gsub ('"', '\\"'):gsub ('`', '\\`'):gsub ('%$','\\%$')
++			local path2 = event2.path:gsub ('"', '\\"'):gsub ('`', '\\`'):gsub ('%$','\\%$')
++			log('Normal', 'Moving ',path1,' -> ',path2)
++
+ 			spawn(event, '/usr/bin/ssh',
+ 				config.host,
+ 				'mv',
+-				'\"' .. config.targetdir .. event.path .. '\"',
+-				'\"' .. config.targetdir .. event2.path .. '\"',
++				'\"' .. config.targetdir .. path1 .. '\"',
++				'\"' .. config.targetdir .. path2 .. '\"',
+ 				'||', 'rm', '-rf',
+-				'\"' .. config.targetdir .. event.path .. '\"')
++				'\"' .. config.targetdir .. path1 .. '\"')
+ 			return
+ 		end
+ 
