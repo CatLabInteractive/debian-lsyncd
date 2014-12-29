@@ -1,6 +1,8 @@
 lsyncd (2.0.7-3+deb7u1) wheezy-security; urgency=high
 
-  * add debian/patches/fix-shell-escapes.patch (Closes: #767227)
+  * fix security issue CVE-2014-8990 that allows code execution via shell
+    characters in file names and denial of service scenarios by applying
+    debian/patches/fix-CVE-2014-8990-shell-escapes.patch (Closes: #767227)
 
  -- Jan Dittberner <jandd@debian.org>  Wed, 29 Oct 2014 20:10:37 +0100
 
