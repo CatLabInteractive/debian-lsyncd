@@ -1,10 +1,10 @@
-lsyncd (2.1.5-2) UNRELEASED; urgency=high
+lsyncd (2.1.5-2) unstable; urgency=high
 
   * fix security issue CVE-2014-8990 that allows code execution via shell
     characters in file names and denial of service scenarios by applying
     debian/patches/fix-CVE-2014-8990-shell-escapes.patch (Closes: #767227)
 
- -- Jan Dittberner <jandd@debian.org>  Wed, 29 Oct 2014 19:48:43 +0100
+ -- Jan Dittberner <jandd@debian.org>  Mon, 29 Dec 2014 11:36:43 +0100
 
 lsyncd (2.1.5-1) unstable; urgency=low
 
