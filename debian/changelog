@@ -4,7 +4,7 @@ lsyncd (2.0.7-3+deb7u1) wheezy-security; urgency=high
     characters in file names and denial of service scenarios by applying
     debian/patches/fix-CVE-2014-8990-shell-escapes.patch (Closes: #767227)
 
- -- Jan Dittberner <jandd@debian.org>  Wed, 29 Oct 2014 20:10:37 +0100
+ -- Jan Dittberner <jandd@debian.org>  Mon, 29 Dec 2014 11:29:15 +0100
 
 lsyncd (2.0.7-3) unstable; urgency=low
 
