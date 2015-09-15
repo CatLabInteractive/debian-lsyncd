@@ -13,15 +13,6 @@ lsyncd_SOURCES += fsevents.c
 endif
 
 lsyncd_LDADD = $(LUA_LIBS)
-exampledir = $(docdir)/
-dist_example_DATA = \
-	examples/lbash.lua \
-	examples/lecho.lua \
-	examples/lgforce.lua \
-	examples/limagemagic.lua \
-	examples/lpostcmd.lua \
-	examples/lrsync.lua \
-	examples/lrsyncssh.lua
 TESTS = \
 	tests/churn-rsync.lua \
 	tests/churn-rsyncssh.lua \

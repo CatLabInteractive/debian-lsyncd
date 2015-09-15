@@ -1,3 +1,9 @@
+lsyncd (2.1.5-2showpad1) unstable; urgency=medium
+
+  * Add full support for symlinked directories
+
+ -- Thijs Van der Schaeghe (CatLab Interactive) <thijs@catlab.be>  Tue, 15 Sep 2015 11:01:08 +0000
+
 lsyncd (2.1.5-2) unstable; urgency=high
 
   * fix security issue CVE-2014-8990 that allows code execution via shell
