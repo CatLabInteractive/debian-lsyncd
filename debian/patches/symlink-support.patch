@@ -1,0 +1,169 @@
+Description: <short summary of the patch>
+ TODO: Put a short summary on the line above and replace this paragraph
+ with a longer explanation of this change. Complete the meta-information
+ with other relevant fields (see below for details). To make it easier, the
+ information below has been extracted from the changelog. Adjust it or drop
+ it.
+ .
+ lsyncd (2.1.5-2showpad1) unstable; urgency=medium
+ .
+   * Add full support for symlinked directories
+Author: Thijs Van der Schaeghe (CatLab Interactive) <thijs@catlab.be>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: <vendor|upstream|other>, <url of original patch>
+Bug: <url in upstream bugtracker>
+Bug-Debian: http://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: <YYYY-MM-DD>
+
+--- lsyncd-2.1.5.orig/lsyncd.lua
++++ lsyncd-2.1.5/lsyncd.lua
+@@ -844,7 +844,7 @@ local InletFactory = ( function( )
+ 		-- Returns true if event relates to a directory
+ 		--
+ 		isdir = function( event )
+-			return string.byte( getPath( event ), -1 ) == 47
++			return lsyncd.isdir(getPath(event));
+ 		end,
+ 
+ 		--
+@@ -1667,6 +1667,7 @@ local Sync = ( function( )
+ 
+ 						local pd = path .. dirname
+ 
++						isdir = lsyncd.isdir(path .. dirname)
+ 						if isdir then
+ 							pd = pd..'/'
+ 						end
+@@ -2609,11 +2610,29 @@ local Inotify = ( function( )
+ 		wd2,       --  watch descriptor for target if it's a Move
+ 		filename2  --  string filename without path of Move target
+ 	)
++		-- looks up the watch descriptor id
++		local path = wdpaths[ wd ]
++		if path then
++			path = path..filename
++		end
++
++		local path2 = wd2 and wdpaths[ wd2 ]
++
++		if path2 and filename2 then
++			path2 = path2..filename2
++		end
++
++		-- overwrite isdir --
++		isdir = lsyncd.isdir(path);
++
++		-- add slashes if path is a folder --
+ 		if isdir then
+ 			filename = filename .. '/'
++			path = path .. '/'
+ 
+ 			if filename2 then
+ 				filename2 = filename2 .. '/'
++				path2 = path2 .. '/'
+ 			end
+ 		end
+ 
+@@ -2639,18 +2658,6 @@ local Inotify = ( function( )
+ 			)
+ 		end
+ 
+-		-- looks up the watch descriptor id
+-		local path = wdpaths[ wd ]
+-		if path then
+-			path = path..filename
+-		end
+-
+-		local path2 = wd2 and wdpaths[ wd2 ]
+-
+-		if path2 and filename2 then
+-			path2 = path2..filename2
+-		end
+-
+ 		if not path and path2 and etype == 'Move' then
+ 			log(
+ 				'Inotify',
+--- lsyncd-2.1.5.orig/lsyncd.c
++++ lsyncd-2.1.5/lsyncd.c
+@@ -1329,6 +1329,64 @@ l_realdir( lua_State *L )
+ 	return 1;
+ }
+ 
++static int
++l_isdir( lua_State *L )
++{
++	const char *rdir = luaL_checkstring(L, 1);
++	char *adir = get_realpath(rdir);
++
++	bool isdir;
++	isdir = 0;
++
++	// makes sure its a directory
++	struct stat st;
++	if (stat(adir, &st)) {
++		printlogf(L, "Error",
++			"cannot get absolute path of dir '%s': %s", rdir, strerror(errno));
++
++		lua_pushboolean(L, 0);
++		return 0;
++	}
++
++	if (S_ISDIR(st.st_mode)) {
++		isdir = 1;
++	}
++
++	lua_pushboolean(L, isdir);
++	free(adir);
++
++	return 1;
++}
++
++static int
++l_islink( lua_State *L )
++{
++	const char *rdir = luaL_checkstring(L, 1);
++	char *adir = get_realpath(rdir);
++
++	bool isdir;
++	isdir = 0;
++
++	// makes sure its a directory
++	struct stat st;
++	if (stat(adir, &st)) {
++		printlogf(L, "Error",
++			"cannot get absolute path of dir '%s': %s", rdir, strerror(errno));
++
++		lua_pushboolean(L, 0);
++		return 0;
++	}
++
++	if (S_ISLNK(st.st_mode)) {
++		isdir = 1;
++	}
++
++	lua_pushboolean(L, isdir);
++	free(adir);
++
++	return 1;
++}
++
+ /*
+ | Dumps the Lua stack.
+ | For debugging purposes.
+@@ -1745,6 +1803,8 @@ static const luaL_Reg lsyncdlib[] =
+ 	{ "observe_fd",     l_observe_fd    },
+ 	{ "readdir",        l_readdir       },
+ 	{ "realdir",        l_realdir       },
++	{ "isdir",          l_isdir         },
++	{ "islink",         l_islink        },
+ 	{ "stackdump",      l_stackdump     },
+ 	{ "terminate",      l_terminate     },
+ 	{ NULL,             NULL            }
