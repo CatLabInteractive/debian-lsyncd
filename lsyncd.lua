@@ -2610,9 +2610,6 @@ local Inotify = ( function( )
 		wd2,       --  watch descriptor for target if it's a Move
 		filename2  --  string filename without path of Move target
 	)
-		-- overwrite isdir --
-		isdir = lsyncd.isdir(path);
-
 		-- looks up the watch descriptor id
 		local path = wdpaths[ wd ]
 		if path then
@@ -2624,6 +2621,9 @@ local Inotify = ( function( )
 		if path2 and filename2 then
 			path2 = path2..filename2
 		end
+
+		-- overwrite isdir --
+		isdir = lsyncd.isdir(path);
 
 		-- add slashes if path is a folder --
 		if isdir then
