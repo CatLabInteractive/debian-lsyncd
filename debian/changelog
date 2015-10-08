@@ -1,3 +1,10 @@
+lsyncd (2.1.5-2showpad1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Add full support for symlinked directoryes
+
+ -- Thijs Van der Schaeghe (Showpad) <thijs.vanderschaeghe@showpad.com>  Thu, 08 Oct 2015 17:39:00 +0200
+
 lsyncd (2.1.5-2showpad1) unstable; urgency=medium
 
   * Add full support for symlinked directories
