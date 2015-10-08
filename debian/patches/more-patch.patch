@@ -1,0 +1,65 @@
+Description: Adding symlink support
+   * Add full support for symlinked directoryes
+Author: Thijs Van der Schaeghe (Showpad) <thijs.vanderschaeghe@showpad.com>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: <vendor|upstream|other>, <url of original patch>
+Bug: <url in upstream bugtracker>
+Bug-Debian: https://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: <YYYY-MM-DD>
+
+--- lsyncd-2.1.5.orig/Makefile.am
++++ lsyncd-2.1.5/Makefile.am
+@@ -13,15 +13,6 @@ lsyncd_SOURCES += fsevents.c
+ endif
+ 
+ lsyncd_LDADD = $(LUA_LIBS)
+-exampledir = $(docdir)/
+-dist_example_DATA = \
+-	examples/lbash.lua \
+-	examples/lecho.lua \
+-	examples/lgforce.lua \
+-	examples/limagemagic.lua \
+-	examples/lpostcmd.lua \
+-	examples/lrsync.lua \
+-	examples/lrsyncssh.lua
+ TESTS = \
+ 	tests/churn-rsync.lua \
+ 	tests/churn-rsyncssh.lua \
+--- lsyncd-2.1.5.orig/default-rsyncssh.lua
++++ lsyncd-2.1.5/default-rsyncssh.lua
+@@ -74,6 +74,11 @@ rsyncssh.action = function( inlet )
+ 	-- makes move local on target host
+ 	-- if the move fails, it deletes the source
+ 	if event.etype == 'Move' then
++		local path1 = config.targetdir .. event.path
++		local path2 = config.targetdir .. event2.path
++		path1 = "'" .. path1:gsub ('\'', '\'"\'"\'') .. "'"
++		path2 = "'" .. path2:gsub ('\'', '\'"\'"\'') .. "'"
++
+ 		log('Normal', 'Moving ',event.path,' -> ',event2.path)
+ 
+ 		spawn(
+@@ -82,10 +87,12 @@ rsyncssh.action = function( inlet )
+ 			config.ssh._computed,
+ 			config.host,
+ 			'mv',
+-			'\"' .. config.targetdir .. event.path .. '\"',
+-			'\"' .. config.targetdir .. event2.path .. '\"',
++			path1,
++			path2
+ 			'||', 'rm', '-rf',
+-			'\"' .. config.targetdir .. event.path .. '\"')
++			path1
++		)
++
+ 		return
+ 	end
+ 
